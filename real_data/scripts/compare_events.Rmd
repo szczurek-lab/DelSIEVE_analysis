@@ -1,0 +1,185 @@
+---
+title: "compare_events"
+author: senbaikang
+date: 01.01.25
+output:
+  pdf_document:
+    latex_engine: xelatex
+  html_notebook: default
+---
+
+```{r warning=FALSE,message=FALSE}
+source(file = "real_data_visualization.R")
+```
+
+# CRC28
+
+```{r}
+crc28_trees <- list(
+    SIEVE = load.tree("../crc28/data/sieve_annotated.tree"),
+    DelSIEVE = load.tree("../crc28/sa/delsieve/geneannotator/annotated.tree")
+  )
+```
+
+```{r}
+crc28_events <- sapply(
+  crc28_trees,
+  function(x) collect.events(x),
+  simplify = FALSE
+)
+
+crc28_event_num <- lapply(
+  crc28_events,
+  function(x) table(x$events)
+)
+```
+
+# CRC48
+
+```{r}
+crc48_trees <- list(
+    SIEVE = load.tree("../crc48/data/sieve_annotated.tree"),
+    DelSIEVE = load.tree("../crc48/sa/delsieve/geneannotator/annotated.tree")
+  )
+```
+
+```{r}
+crc48_events <- sapply(
+  crc48_trees,
+  function(x) collect.events(x),
+  simplify = FALSE
+)
+
+crc48_event_num <- lapply(
+  crc48_events,
+  function(x) table(x$events)
+)
+```
+
+# TNBC16
+
+```{r}
+tnbc16_trees <- list(
+    SIEVE = load.tree("../tnbc16/data/sieve_annotated.tree"),
+    DelSIEVE = load.tree("../tnbc16/sa/delsieve/geneannotator/annotated.tree")
+  )
+```
+
+```{r}
+tnbc16_events <- sapply(
+  tnbc16_trees,
+  function(x) collect.events(x),
+  simplify = FALSE
+)
+
+tnbc16_event_num <- lapply(
+  tnbc16_events,
+  function(x) table(x$events)
+)
+```
+
+```{r}
+event_num <- do.call(
+  rbind,
+  list(
+    comp.event.num(tnbc16_events) %>% mutate(dataset = "tnbc16"),
+    comp.event.num(crc28_events) %>% mutate(dataset = "crc28"),
+    comp.event.num(crc48_events) %>% mutate(dataset = "crc48")
+  )
+) %>%
+  mutate(
+    event = as.character(event)
+  )
+
+events <- event_num %>%
+  select(-dataset) %>%
+  group_by(
+    method, event, event_name
+  ) %>%
+  mutate(
+    n = sum(n)
+  ) %>%
+  distinct(n) %>%
+  ungroup() %>%
+  arrange(n) %>%
+  mutate(
+    event = factor(event, levels = unique(event)),
+    event_name = factor(event_name, levels = unique(event_name))
+  )
+
+event_num <- event_num %>%
+  mutate(
+    event = factor(event, levels = levels(events$event)),
+    event_name = factor(event_name, levels = levels(events$event_name))
+  )
+```
+
+```{r}
+ggsave(
+  "../figs/tnbc16_crc28_crc48_events.pdf",
+  plot = plot.event.num(
+    event_num,
+    max.cnt.num = 700,
+    dataset.order = c("tnbc16", "crc28", "crc48"),
+    rela.heights = c(1, 1, 1.25)
+  ),
+  device = "pdf",
+  width = 183,
+  height = 100,
+  units = "mm"
+)
+```
+
+```{r warning=FALSE, message=FALSE}
+census <- read_csv("../cosmic/cosmic_census.csv") %>%
+  mutate(
+    is_ocg = grepl("oncogene", `Role in Cancer`),
+    is_tsg = grepl("TSG", `Role in Cancer`)
+  ) %>%
+  filter(
+    is_ocg | is_tsg
+  )
+
+tnbc16_gene_events <- lapply(
+  tnbc16_events,
+  function(x) {
+    as.tibble(x)
+  }
+)
+
+tnbc16_gene_events <- do.call(
+  full_join,
+  c(
+    lapply(
+      names(tnbc16_gene_events),
+      function(x) {
+        semi_join(
+          tnbc16_gene_events[[x]],
+          census,
+          by = c("genes" = "Gene Symbol")
+        ) %>%
+          rename_with(
+            ~c(paste("events", x, sep = "_"), paste("event_names", x, sep = "_")),
+            c("events", "event_names")
+          )
+      }
+    ),
+    by = "genes"
+  )
+) %>%
+  left_join(
+    census,
+    by = c("genes" = "Gene Symbol")
+  )
+```
+
+```{r}
+tmp <- comp2census(
+  "../cosmic/cosmic_census.csv",
+  list(
+    crc28 = crc28_events,
+    crc48 = crc48_events,
+    tnbc16 = tnbc16_events
+  )
+)
+```

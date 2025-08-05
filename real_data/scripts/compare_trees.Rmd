@@ -1,0 +1,200 @@
+---
+title: "R Notebook"
+author: senbaikang
+date: 26.03.23
+output:
+  pdf_document: 
+      latex_engine: xelatex
+  html_notebook: default
+---
+
+```{r}
+library(treeio)
+library(phangorn)
+library(ape)
+library(ComplexHeatmap)
+```
+
+```{r}
+out.width <- 120 # mm
+out.height <- 120 # mm
+in2mm <- 25.4
+
+gpar.title <- gpar(fontsize = 8L, fontfamily = "sans")
+# gpar.title.2 <- gpar(fontsize = 8L, fontfamily = "sans")
+gpar.text <- gpar(fontsize = 7L, fontfamily = "sans")
+# gpar.small <- gpar(fontsize = 6L, fontfamily = "sans")
+
+# color.gt.hm <- get.gt.hm.color(i = 2)
+# hm.row.title <- "Cells"
+# hm.row.title.side <- "left"
+# hm.row.title.gp <- gpar.title.2
+# hm.column.title <- "SNV sites"
+# hm.column.title.side <- "top"
+# hm.column.title.gp <- gpar.title.2
+# hm.row.order <- ordered.tips
+hm.row.names.side <- "left"
+hm.row.names.gp <- gpar.text
+hm.col.names.side <- "bottom"
+hm.col.names.gp <- gpar.text
+hm.col.names.rot <- 45
+```
+
+## CRC48
+```{r}
+RF_DIST_FILE <- "crc48_rf_dist.pdf"
+BS_DIST_FILE <- "crc48_bs_dist.pdf"
+
+trees <- list(
+    SIEVE_sa = read.nexus("../crc48/data/sieve_annotated.tree", force.multi = FALSE),
+    SIEVE_ld = read.nexus("../crc48/ld/sieve/geneannotator/annotated.tree", force.multi = FALSE),
+    DelSIEVE_sa = read.nexus("../crc48/sa/delsieve/geneannotator/annotated.tree", force.multi = FALSE),
+    DelSIEVE_ld = read.nexus("../crc48/ld/delsieve/geneannotator/annotated.tree", force.multi = FALSE)
+  )
+```
+
+## CRC28
+```{r}
+RF_DIST_FILE <- "crc28_rf_dist.pdf"
+BS_DIST_FILE <- "crc28_bs_dist.pdf"
+
+trees <- list(
+    SIEVE_sa = read.nexus("../crc28/data/sieve_annotated.tree", force.multi = FALSE),
+    SIEVE_ld = read.nexus("../crc28/ld/sieve/geneannotator/annotated.tree", force.multi = FALSE),
+    DelSIEVE_sa = read.nexus("../crc28/sa/delsieve/geneannotator/annotated.tree", force.multi = FALSE),
+    DelSIEVE_ld = read.nexus("../crc28/ld/delsieve/geneannotator/annotated.tree", force.multi = FALSE)
+  )
+```
+
+## TNBC16
+```{r}
+RF_DIST_FILE <- "tnbc16_rf_dist.pdf"
+BS_DIST_FILE <- "tnbc16_bs_dist.pdf"
+
+trees <- list(
+    SIEVE_sa = read.nexus("../tnbc16/data/sieve_annotated.tree", force.multi = FALSE),
+    SIEVE_ld = read.nexus("../tnbc16/ld/sieve/geneannotator/annotated.tree", force.multi = FALSE),
+    DelSIEVE_sa = read.nexus("../tnbc16/sa/delsieve/geneannotator/annotated.tree", force.multi = FALSE),
+    DelSIEVE_ld = read.nexus("../tnbc16/ld/delsieve/geneannotator/annotated.tree", force.multi = FALSE)
+  )
+```
+
+
+```{r}
+rf_dist <- proxy::dist(
+  x = trees,
+  method = RF.dist,
+  normalize = TRUE,
+  rooted = TRUE
+)
+```
+
+```{r}
+bs_dist <- proxy::dist(
+  x = trees,
+  method = KF.dist,
+  rooted = TRUE
+)
+```
+
+```{r}
+cairo_pdf(
+    RF_DIST_FILE,
+    width = out.width / in2mm,
+    height = out.height / in2mm,
+    onefile = FALSE
+)
+nrf.mat <- as.matrix(rf_dist)
+nrf.mat <- nrf.mat[2:dim(nrf.mat)[1], 1:(dim(nrf.mat)[2] - 1)]
+nrf.hm <- Heatmap(
+  nrf.mat,
+  rect_gp = gpar(type = "none"),
+  col = circlize::colorRamp2(
+    c(0, 0.5, 1),
+    c("blue", "white", "red")
+  ),
+  cell_fun = function(j, i, x, y, width, height, fill) 
+  {
+    if (i >= j) {
+      grid.rect(x, y, width, height, gp = gpar(fill = fill, col = fill))
+      grid.text(
+        sprintf("%.2f", nrf.mat[i, j]),
+        x,
+        y,
+        gp = gpar.text
+      )
+    }
+  },
+  name = "Normalised Robinson-Foulds distance",
+  row_names_side = hm.row.names.side,
+  row_names_gp = hm.row.names.gp,
+  row_names_centered = TRUE,
+  cluster_rows = FALSE,
+  cluster_columns = FALSE,
+  column_names_side = hm.col.names.side,
+  column_names_gp = hm.col.names.gp,
+  column_names_rot = hm.col.names.rot,
+  column_names_centered = TRUE,
+  heatmap_legend_param = list(
+    at = c(0, 0.25, 0.5, 0.75, 1),
+    grid_height = unit(3, "mm"),
+    grid_width = unit(3, "mm"),
+    border = "black",
+    title_gp = gpar.title,
+    labels_gp = gpar.text,
+    legend_direction = "horizontal"
+  ),
+  use_raster = FALSE
+)
+draw(
+  nrf.hm,
+  heatmap_legend_side = "bottom"
+)
+dev.off()
+```
+
+```{r}
+cairo_pdf(
+    BS_DIST_FILE,
+    width = out.width / in2mm,
+    height = out.height / in2mm,
+    onefile = FALSE
+)
+bs.mat <- as.matrix(bs_dist)
+bs.mat <- bs.mat[2:dim(bs.mat)[1], 1:(dim(bs.mat)[2] - 1)]
+rbs.hm <- Heatmap(
+  bs.mat,
+  rect_gp = gpar(type = "none"),
+  col = c("lightgray", "lightgray"),
+  cell_fun = function(j, i, x, y, width, height, fill) 
+  {
+    if (i >= j) {
+      grid.rect(x, y, width, height, gp = gpar(fill = fill, col = fill))
+      grid.text(
+        sprintf("%.2e", bs.mat[i, j]),
+        x,
+        y,
+        gp = gpar.text
+      )
+    }
+  },
+  name = "Branch score distance",
+  row_names_side = hm.row.names.side,
+  row_names_gp = hm.row.names.gp,
+  row_names_centered = TRUE,
+  cluster_rows = FALSE,
+  cluster_columns = FALSE,
+  column_names_side = hm.col.names.side,
+  column_names_gp = hm.col.names.gp,
+  column_names_rot = hm.col.names.rot,
+  column_names_centered = TRUE,
+  show_heatmap_legend = FALSE,
+  use_raster = FALSE
+)
+draw(
+  rbs.hm,
+  heatmap_legend_side = "bottom"
+)
+dev.off()
+```
+

@@ -1,0 +1,3315 @@
+---
+title: "MCMC diagnostics"
+output:
+  html_document:
+    toc: true
+    toc_float: true
+    theme: united
+---
+
+```{r, include=FALSE}
+library(coda)
+library(dplyr)
+library(ggplot2)
+library(ggpubr)
+library(wesanderson)
+```
+
+```{r, include=FALSE}
+thin <- 500
+autoburnin <- FALSE
+
+linewidth.1 = 0.4
+linewidth.2 = 0.1
+
+burnin.alpha <- c(
+  "yes" = 0.4,
+  "no" = 1.0
+)
+
+chain.color <- c(
+  "1" = wes_palette("AsteroidCity1")[[1]],
+  "2" = wes_palette("AsteroidCity1")[[2]]
+)
+
+no.legend <- theme(
+  legend.position = "none"
+)
+```
+
+# CRC28
+
+Load chains.
+
+```{r, include=FALSE}
+crc28_1 <- read.table(
+  "../crc28/results/stage1/phylogenetic_inference_dir/rmc_mudel_sa_stage_1/rmc_mudel_sa_stage_1.log",
+  header = TRUE
+)
+```
+
+```{r, include=FALSE}
+crc28_2 <- read.table(
+  "../crc28/results_rep_2/stage1/phylogenetic_inference_dir/rmc_mudel_sa_stage_1/rmc_mudel_sa_stage_1.log",
+  header = TRUE
+)
+```
+
+## Trace plot
+
+```{r}
+crc28.burnin <- 0.1
+crc28.len <- min(nrow(crc28_1), nrow(crc28_2))
+```
+
+### Loglikelihood
+
+```{r, include=FALSE}
+crc28.likelihood <- rbind(
+  crc28_1[1:crc28.len, ] %>%
+    mutate(
+      likelihood = likelihood1 + likelihood2
+    ) %>%
+    select(
+      Sample,
+      likelihood
+    ) %>%
+    mutate(
+      chain = 1
+    ),
+  crc28_2[1:crc28.len, ] %>%
+    mutate(
+      likelihood = likelihood1 + likelihood2
+    ) %>%
+    select(
+      Sample,
+      likelihood
+    ) %>%
+    mutate(
+      chain = 2
+    )
+) %>%
+  mutate(
+    chain = factor(chain, levels = c(1, 2))
+  ) %>%
+  mutate(
+    burnin = if_else(
+      Sample <= crc28.burnin * (crc28.len - 1) * thin,
+      "yes",
+      "no"
+    )
+  )
+```
+
+```{r, include=FALSE}
+tp.crc28.likelihood.1 <- ggplot(
+  crc28.likelihood,
+  aes(
+    x = Sample,
+    y = likelihood,
+    shape = chain,
+    color = chain,
+    alpha = burnin
+  )
+) +
+  geom_line(
+    linewidth = linewidth.1
+  ) +
+  geom_vline(
+    xintercept = max(filter(crc28.likelihood, burnin == "yes")$Sample),
+    linetype="dashed",
+    color = "gray43",
+    size = 1 / .pt
+  ) +
+  ylab("Loglikelihood") +
+  scale_color_manual(
+    values = chain.color
+  ) +
+  scale_alpha_manual(
+    values = burnin.alpha
+  ) +
+  theme_bw() +
+  theme(
+    text = element_text(size = 7),
+    axis.title.x = element_blank(),
+    axis.text.x = element_blank(),
+    axis.ticks.x = element_blank(),
+    legend.position = "bottom",
+    panel.grid = element_blank()
+  )
+
+tp.crc28.likelihood.2 <- ggplot(
+  crc28.likelihood %>%
+    filter(
+      burnin == "no"
+    ),
+  aes(
+    x = Sample,
+    y = likelihood,
+    shape = chain,
+    color = chain,
+    alpha = burnin
+  )
+) +
+  geom_line(
+    linewidth = linewidth.2
+  ) +
+  geom_vline(
+    xintercept = max(filter(crc28.likelihood, burnin == "yes")$Sample),
+    linetype="dashed",
+    color = "gray43",
+    size = 1 / .pt
+  ) +
+  ylab("Loglikelihood") +
+  scale_color_manual(
+    values = chain.color
+  ) +
+  scale_alpha_manual(
+    values = burnin.alpha
+  ) +
+  theme_bw() +
+  theme(
+    text = element_text(size = 7),
+    axis.title.y = element_blank(),
+    axis.title.x = element_blank(),
+    axis.text.x = element_blank(),
+    axis.ticks.x = element_blank(),
+    legend.position = "bottom",
+    panel.grid = element_blank()
+  )
+```
+
+### Ado rate
+
+```{r, include=FALSE}
+crc28.ado.rate <- rbind(
+  crc28_1[1:crc28.len, ] %>%
+  select(
+    Sample,
+    adoRate
+  ) %>%
+  mutate(
+    chain = 1
+  ),
+  crc28_2[1:crc28.len, ] %>%
+  select(
+    Sample,
+    adoRate
+  ) %>%
+  mutate(
+    chain = 2
+  )
+) %>%
+  mutate(
+    chain = factor(chain, levels = c(1, 2))
+  ) %>%
+  mutate(
+    burnin = if_else(
+      Sample <= crc28.burnin * (crc28.len - 1) * thin,
+      "yes",
+      "no"
+    )
+  )
+```
+
+```{r}
+tp.crc28.ado.rate.1 <- ggplot(
+  crc28.ado.rate,
+  aes(
+    x = Sample,
+    y = adoRate,
+    shape = chain,
+    color = chain,
+    alpha = burnin
+  )
+) +
+  geom_line(
+    linewidth = linewidth.1
+  ) +
+  geom_vline(
+    xintercept = max(filter(crc28.ado.rate, burnin == "yes")$Sample),
+    linetype="dashed",
+    color = "gray43",
+    size = 1 / .pt
+  ) +
+  ylab("ADO rate") +
+  scale_color_manual(
+    values = chain.color
+  ) +
+  scale_alpha_manual(
+    values = burnin.alpha
+  ) +
+  theme_bw() +
+  theme(
+    text = element_text(size = 7),
+    axis.title.x = element_blank(),
+    axis.text.x = element_blank(),
+    axis.ticks.x = element_blank(),
+    legend.position = "bottom",
+    panel.grid = element_blank()
+  )
+
+tp.crc28.ado.rate.2 <- ggplot(
+  crc28.ado.rate %>%
+    filter(
+      burnin == "no"
+    ),
+  aes(
+    x = Sample,
+    y = adoRate,
+    shape = chain,
+    color = chain,
+    alpha = burnin
+  )
+) +
+  geom_line(
+    linewidth = linewidth.2
+  ) +
+  geom_vline(
+    xintercept = max(filter(crc28.ado.rate, burnin == "yes")$Sample),
+    linetype="dashed",
+    color = "gray43",
+    size = 1 / .pt
+  ) +
+  ylab("ADO rate") +
+  scale_color_manual(
+    values = chain.color
+  ) +
+  scale_alpha_manual(
+    values = burnin.alpha
+  ) +
+  theme_bw() +
+  theme(
+    text = element_text(size = 7),
+    axis.title.y = element_blank(),
+    axis.title.x = element_blank(),
+    axis.text.x = element_blank(),
+    axis.ticks.x = element_blank(),
+    legend.position = "bottom",
+    panel.grid = element_blank()
+  )
+```
+
+### Effective sequencing error rate
+
+```{r, include=FALSE}
+crc28.eff.seq.err.rate <- rbind(
+  crc28_1[1:crc28.len, ] %>%
+  select(
+    Sample,
+    effSeqErrRate
+  ) %>%
+  mutate(
+    chain = 1
+  ),
+  crc28_2[1:crc28.len, ] %>%
+  select(
+    Sample,
+    effSeqErrRate
+  ) %>%
+  mutate(
+    chain = 2
+  )
+) %>%
+  mutate(
+    chain = factor(chain, levels = c(1, 2))
+  ) %>%
+  mutate(
+    burnin = if_else(
+      Sample <= crc28.burnin * (crc28.len - 1) * thin,
+      "yes",
+      "no"
+    )
+  )
+```
+
+```{r}
+tp.crc28.eff.seq.err.rate.1 <- ggplot(
+  crc28.eff.seq.err.rate,
+  aes(
+    x = Sample,
+    y = effSeqErrRate,
+    shape = chain,
+    color = chain,
+    alpha = burnin
+  )
+) +
+  geom_line(
+    linewidth = linewidth.1
+  ) +
+  geom_vline(
+    xintercept = max(filter(crc28.eff.seq.err.rate, burnin == "yes")$Sample),
+    linetype="dashed",
+    color = "gray43",
+    size = 1 / .pt
+  ) +
+  ylab("Effective sequencing\nerror rate") +
+  scale_color_manual(
+    values = chain.color
+  ) +
+  scale_alpha_manual(
+    values = burnin.alpha
+  ) +
+  theme_bw() +
+  theme(
+    text = element_text(size = 7),
+    axis.title.x = element_blank(),
+    axis.text.x = element_blank(),
+    axis.ticks.x = element_blank(),
+    legend.position = "bottom",
+    panel.grid = element_blank()
+  )
+
+tp.crc28.eff.seq.err.rate.2 <- ggplot(
+  crc28.eff.seq.err.rate %>%
+    filter(
+      burnin == "no"
+    ),
+  aes(
+    x = Sample,
+    y = effSeqErrRate,
+    shape = chain,
+    color = chain,
+    alpha = burnin
+  )
+) +
+  geom_line(
+    linewidth = linewidth.2
+  ) +
+  geom_vline(
+    xintercept = max(filter(crc28.eff.seq.err.rate, burnin == "yes")$Sample),
+    linetype="dashed",
+    color = "gray43",
+    size = 1 / .pt
+  ) +
+  ylab("Effective sequencing\nerror rate") +
+  scale_color_manual(
+    values = chain.color
+  ) +
+  scale_alpha_manual(
+    values = burnin.alpha
+  ) +
+  theme_bw() +
+  theme(
+    text = element_text(size = 7),
+    axis.title.y = element_blank(),
+    axis.title.x = element_blank(),
+    axis.text.x = element_blank(),
+    axis.ticks.x = element_blank(),
+    legend.position = "bottom",
+    panel.grid = element_blank()
+  )
+```
+
+### Allelic sequencing coverage
+
+```{r, include=FALSE}
+crc28.allelic.seq.cov <- rbind(
+  crc28_1[1:crc28.len, ] %>%
+  select(
+    Sample,
+    allelicSeqCov
+  ) %>%
+  mutate(
+    chain = 1
+  ),
+  crc28_2[1:crc28.len, ] %>%
+  select(
+    Sample,
+    allelicSeqCov
+  ) %>%
+  mutate(
+    chain = 2
+  )
+) %>%
+  mutate(
+    chain = factor(chain, levels = c(1, 2))
+  ) %>%
+  mutate(
+    burnin = if_else(
+      Sample <= crc28.burnin * (crc28.len - 1) * thin,
+      "yes",
+      "no"
+    )
+  )
+```
+
+```{r}
+tp.crc28.allelic.seq.cov.1 <- ggplot(
+  crc28.allelic.seq.cov,
+  aes(
+    x = Sample,
+    y = allelicSeqCov,
+    shape = chain,
+    color = chain,
+    alpha = burnin
+  )
+) +
+  geom_line(
+    linewidth = linewidth.1
+  ) +
+  geom_vline(
+    xintercept = max(filter(crc28.allelic.seq.cov, burnin == "yes")$Sample),
+    linetype="dashed",
+    color = "gray43",
+    size = 1 / .pt
+  ) +
+  ylab("Allelic sequencing\ncoverage") +
+  scale_color_manual(
+    values = chain.color
+  ) +
+  scale_alpha_manual(
+    values = burnin.alpha
+  ) +
+  theme_bw() +
+  theme(
+    text = element_text(size = 7),
+    axis.title.x = element_blank(),
+    axis.text.x = element_blank(),
+    axis.ticks.x = element_blank(),
+    legend.position = "bottom",
+    panel.grid = element_blank()
+  )
+
+tp.crc28.allelic.seq.cov.2 <- ggplot(
+  crc28.allelic.seq.cov %>%
+    filter(
+      burnin == "no"
+    ),
+  aes(
+    x = Sample,
+    y = allelicSeqCov,
+    shape = chain,
+    color = chain,
+    alpha = burnin
+  )
+) +
+  geom_line(
+    linewidth = linewidth.2
+  ) +
+  geom_vline(
+    xintercept = max(filter(crc28.allelic.seq.cov, burnin == "yes")$Sample),
+    linetype="dashed",
+    color = "gray43",
+    size = 1 / .pt
+  ) +
+  ylab("Allelic sequencing\ncoverage") +
+  scale_color_manual(
+    values = chain.color
+  ) +
+  scale_alpha_manual(
+    values = burnin.alpha
+  ) +
+  theme_bw() +
+  theme(
+    text = element_text(size = 7),
+    axis.title.y = element_blank(),
+    axis.title.x = element_blank(),
+    axis.text.x = element_blank(),
+    axis.ticks.x = element_blank(),
+    legend.position = "bottom",
+    panel.grid = element_blank()
+  )
+```
+
+### Allelic sequencing coverage raw variance
+
+```{r, include=FALSE}
+crc28.allelic.seq.cov.raw.var <- rbind(
+  crc28_1[1:crc28.len, ] %>%
+  select(
+    Sample,
+    allelicSeqCovRawVar
+  ) %>%
+  mutate(
+    chain = 1
+  ),
+  crc28_2[1:crc28.len, ] %>%
+  select(
+    Sample,
+    allelicSeqCovRawVar
+  ) %>%
+  mutate(
+    chain = 2
+  )
+) %>%
+  mutate(
+    chain = factor(chain, levels = c(1, 2))
+  ) %>%
+  mutate(
+    burnin = if_else(
+      Sample <= crc28.burnin * (crc28.len - 1) * thin,
+      "yes",
+      "no"
+    )
+  )
+```
+
+```{r}
+tp.crc28.allelic.seq.cov.raw.var.1 <- ggplot(
+  crc28.allelic.seq.cov.raw.var,
+  aes(
+    x = Sample,
+    y = allelicSeqCovRawVar,
+    shape = chain,
+    color = chain,
+    alpha = burnin
+  )
+) +
+  geom_line(
+    linewidth = linewidth.1
+  ) +
+  geom_vline(
+    xintercept = max(filter(crc28.allelic.seq.cov.raw.var, burnin == "yes")$Sample),
+    linetype="dashed",
+    color = "gray43",
+    size = 1 / .pt
+  ) +
+  ylab("Allelic sequencing\ncoverage raw variance") +
+  scale_color_manual(
+    values = chain.color
+  ) +
+  scale_alpha_manual(
+    values = burnin.alpha
+  ) +
+  theme_bw() +
+  theme(
+    text = element_text(size = 7),
+    axis.title.x = element_blank(),
+    axis.text.x = element_blank(),
+    axis.ticks.x = element_blank(),
+    legend.position = "bottom",
+    panel.grid = element_blank()
+  )
+
+tp.crc28.allelic.seq.cov.raw.var.2 <- ggplot(
+  crc28.allelic.seq.cov.raw.var %>%
+    filter(
+      burnin == "no"
+    ),
+  aes(
+    x = Sample,
+    y = allelicSeqCovRawVar,
+    shape = chain,
+    color = chain,
+    alpha = burnin
+  )
+) +
+  geom_line(
+    linewidth = linewidth.2
+  ) +
+  geom_vline(
+    xintercept = max(filter(crc28.allelic.seq.cov.raw.var, burnin == "yes")$Sample),
+    linetype="dashed",
+    color = "gray43",
+    size = 1 / .pt
+  ) +
+  ylab("Allelic sequencing\ncoverage raw variance") +
+  scale_color_manual(
+    values = chain.color
+  ) +
+  scale_alpha_manual(
+    values = burnin.alpha
+  ) +
+  theme_bw() +
+  theme(
+    text = element_text(size = 7),
+    axis.title.y = element_blank(),
+    axis.title.x = element_blank(),
+    axis.text.x = element_blank(),
+    axis.ticks.x = element_blank(),
+    legend.position = "bottom",
+    panel.grid = element_blank()
+  )
+```
+
+### Shape controller 1
+
+```{r, include=FALSE}
+crc28.shape.ctrl.1 <- rbind(
+  crc28_1[1:crc28.len, ] %>%
+  select(
+    Sample,
+    shapeCtrl1
+  ) %>%
+  mutate(
+    chain = 1
+  ),
+  crc28_2[1:crc28.len, ] %>%
+  select(
+    Sample,
+    shapeCtrl1
+  ) %>%
+  mutate(
+    chain = 2
+  )
+) %>%
+  mutate(
+    chain = factor(chain, levels = c(1, 2))
+  ) %>%
+  mutate(
+    burnin = if_else(
+      Sample <= crc28.burnin * (crc28.len - 1) * thin,
+      "yes",
+      "no"
+    )
+  )
+```
+
+```{r}
+tp.crc28.shape.ctrl.1.1 <- ggplot(
+  crc28.shape.ctrl.1,
+  aes(
+    x = Sample,
+    y = shapeCtrl1,
+    shape = chain,
+    color = chain,
+    alpha = burnin
+  )
+) +
+  geom_line(
+    linewidth = linewidth.1
+  ) +
+  geom_vline(
+    xintercept = max(filter(crc28.shape.ctrl.1, burnin == "yes")$Sample),
+    linetype="dashed",
+    color = "gray43",
+    size = 1 / .pt
+  ) +
+  ylab("Shape controller 1") +
+  scale_color_manual(
+    values = chain.color
+  ) +
+  scale_alpha_manual(
+    values = burnin.alpha
+  ) +
+  theme_bw() +
+  theme(
+    text = element_text(size = 7),
+    axis.title.x = element_blank(),
+    axis.text.x = element_blank(),
+    axis.ticks.x = element_blank(),
+    legend.position = "bottom",
+    panel.grid = element_blank()
+  )
+
+tp.crc28.shape.ctrl.1.2 <- ggplot(
+  crc28.shape.ctrl.1 %>%
+    filter(
+      burnin == "no"
+    ),
+  aes(
+    x = Sample,
+    y = shapeCtrl1,
+    shape = chain,
+    color = chain,
+    alpha = burnin
+  )
+) +
+  geom_line(
+    linewidth = linewidth.2
+  ) +
+  geom_vline(
+    xintercept = max(filter(crc28.shape.ctrl.1, burnin == "yes")$Sample),
+    linetype="dashed",
+    color = "gray43",
+    size = 1 / .pt
+  ) +
+  ylab("Shape controller 1") +
+  scale_color_manual(
+    values = chain.color
+  ) +
+  scale_alpha_manual(
+    values = burnin.alpha
+  ) +
+  theme_bw() +
+  theme(
+    text = element_text(size = 7),
+    axis.title.y = element_blank(),
+    axis.title.x = element_blank(),
+    axis.text.x = element_blank(),
+    axis.ticks.x = element_blank(),
+    legend.position = "bottom",
+    panel.grid = element_blank()
+  )
+```
+
+### Shape controller 2
+
+```{r, include=FALSE}
+crc28.shape.ctrl.2 <- rbind(
+  crc28_1[1:crc28.len, ] %>%
+  select(
+    Sample,
+    shapeCtrl2
+  ) %>%
+  mutate(
+    chain = 1
+  ),
+  crc28_2[1:crc28.len, ] %>%
+  select(
+    Sample,
+    shapeCtrl2
+  ) %>%
+  mutate(
+    chain = 2
+  )
+) %>%
+  mutate(
+    chain = factor(chain, levels = c(1, 2))
+  ) %>%
+  mutate(
+    burnin = if_else(
+      Sample <= crc28.burnin * (crc28.len - 1) * thin,
+      "yes",
+      "no"
+    )
+  )
+```
+
+```{r}
+tp.crc28.shape.ctrl.2.1 <- ggplot(
+  crc28.shape.ctrl.2,
+  aes(
+    x = Sample,
+    y = shapeCtrl2,
+    shape = chain,
+    color = chain,
+    alpha = burnin
+  )
+) +
+  geom_line(
+    linewidth = linewidth.1
+  ) +
+  geom_vline(
+    xintercept = max(filter(crc28.shape.ctrl.2, burnin == "yes")$Sample),
+    linetype="dashed",
+    color = "gray43",
+    size = 1 / .pt
+  ) +
+  ylab("Shape controller 2") +
+  scale_color_manual(
+    values = chain.color
+  ) +
+  scale_alpha_manual(
+    values = burnin.alpha
+  ) +
+  theme_bw() +
+  theme(
+    text = element_text(size = 7),
+    legend.position = "bottom",
+    panel.grid = element_blank()
+  )
+
+tp.crc28.shape.ctrl.2.2 <- ggplot(
+  crc28.shape.ctrl.2 %>%
+    filter(
+      burnin == "no"
+    ),
+  aes(
+    x = Sample,
+    y = shapeCtrl2,
+    shape = chain,
+    color = chain,
+    alpha = burnin
+  )
+) +
+  geom_line(
+    linewidth = linewidth.2
+  ) +
+  geom_vline(
+    xintercept = max(filter(crc28.shape.ctrl.2, burnin == "yes")$Sample),
+    linetype="dashed",
+    color = "gray43",
+    size = 1 / .pt
+  ) +
+  ylab("Shape controller 2") +
+  scale_color_manual(
+    values = chain.color
+  ) +
+  scale_alpha_manual(
+    values = burnin.alpha
+  ) +
+  theme_bw() +
+  theme(
+    text = element_text(size = 7),
+    axis.title.y = element_blank(),
+    legend.position = "bottom",
+    panel.grid = element_blank()
+  )
+```
+
+### Plot all
+
+```{r}
+tp.crc28 <- ggarrange(
+  ggarrange(
+    tp.crc28.likelihood.1 + no.legend,
+    tp.crc28.ado.rate.1 + no.legend,
+    tp.crc28.eff.seq.err.rate.1 + no.legend,
+    tp.crc28.allelic.seq.cov.1 + no.legend,
+    tp.crc28.allelic.seq.cov.raw.var.1 + no.legend,
+    tp.crc28.shape.ctrl.1.1 + no.legend,
+    tp.crc28.shape.ctrl.2.1 + no.legend,
+    ncol = 1,
+    align = "v",
+    heights = c(
+      rep(
+        1,
+        6
+      ),
+      1.2
+    ),
+    labels = c(
+      "a",
+      "c",
+      "e",
+      "g",
+      "i",
+      "k",
+      "m"
+    ),
+    font.label = list(face = "bold", size = 7)
+  ),
+  ggarrange(
+    tp.crc28.likelihood.2 + no.legend,
+    tp.crc28.ado.rate.2 + no.legend,
+    tp.crc28.eff.seq.err.rate.2 + no.legend,
+    tp.crc28.allelic.seq.cov.2 + no.legend,
+    tp.crc28.allelic.seq.cov.raw.var.2 + no.legend,
+    tp.crc28.shape.ctrl.1.2 + no.legend,
+    tp.crc28.shape.ctrl.2.2 + no.legend,
+    ncol = 1,
+    align = "v",
+    heights = c(
+      rep(
+        1,
+        6
+      ),
+      1.2
+    ),
+    labels = c(
+      "b",
+      "d",
+      "f",
+      "h",
+      "j",
+      "l",
+      "n"
+    ),
+    font.label = list(face = "bold", size = 7)
+  ),
+  nrow = 1,
+  align = "h",
+  common.legend = TRUE,
+  legend = "bottom",
+  legend.grob = get_legend(tp.crc28.likelihood.1)
+)
+```
+
+```{r, include=FALSE}
+ggsave(
+  "../figs/crc28_trace_plot.pdf",
+  tp.crc28,
+  device = "pdf",
+  width = 183,
+  height = 252,
+  units = "mm",
+  dpi = 300
+)
+```
+
+## Gelman-Rubin's criterion
+
+### Ado rate
+
+```{r}
+gr.crc28.ado.rate <- gelman.diag(
+  mcmc.list(
+    list(
+      c1 = mcmc(
+        filter(
+          crc28.ado.rate,
+          chain == 1,
+          burnin == "no"
+        )$adoRate,
+        thin = 500
+      ),
+      c2 = mcmc(
+        filter(
+          crc28.ado.rate,
+          chain == 2,
+          burnin == "no"
+        )$adoRate,
+        thin = 500
+      )
+    )
+  ),
+  autoburnin = autoburnin
+)
+
+gr.crc28.ado.rate
+```
+
+### Effective sequencing error rate
+
+```{r}
+gr.crc28.eff.seq.err.rate <- gelman.diag(
+  mcmc.list(
+    list(
+      c1 = mcmc(
+        filter(
+          crc28.eff.seq.err.rate,
+          chain == 1,
+          burnin == "no"
+        )$effSeqErrRate,
+        thin = 500
+      ),
+      c2 = mcmc(
+        filter(
+          crc28.eff.seq.err.rate,
+          chain == 2,
+          burnin == "no"
+        )$effSeqErrRate,
+        thin = 500
+      )
+    )
+  ),
+  autoburnin = autoburnin
+)
+
+gr.crc28.eff.seq.err.rate
+```
+
+### Allelic sequencing coverage
+
+```{r}
+gr.crc28.allelic.seq.cov <- gelman.diag(
+  mcmc.list(
+    list(
+      c1 = mcmc(
+        filter(
+          crc28.allelic.seq.cov,
+          chain == 1,
+          burnin == "no"
+        )$allelicSeqCov,
+        thin = 500
+      ),
+      c2 = mcmc(
+        filter(
+          crc28.allelic.seq.cov,
+          chain == 2,
+          burnin == "no"
+        )$allelicSeqCov,
+        thin = 500
+      )
+    )
+  ),
+  autoburnin = autoburnin
+)
+
+gr.crc28.allelic.seq.cov
+```
+
+### Allelic sequencing coverage raw variance
+
+```{r}
+gr.crc28.allelic.seq.cov.raw.var <- gelman.diag(
+  mcmc.list(
+    list(
+      c1 = mcmc(
+        filter(
+          crc28.allelic.seq.cov.raw.var,
+          chain == 1,
+          burnin == "no"
+        )$allelicSeqCovRawVar,
+        thin = 500
+      ),
+      c2 = mcmc(
+        filter(
+          crc28.allelic.seq.cov.raw.var,
+          chain == 2,
+          burnin == "no"
+        )$allelicSeqCovRawVar,
+        thin = 500
+      )
+    )
+  ),
+  autoburnin = autoburnin
+)
+
+gr.crc28.allelic.seq.cov.raw.var
+```
+
+### Shape controller 1
+
+```{r}
+gr.crc28.shape.ctrl.1 <- gelman.diag(
+  mcmc.list(
+    list(
+      c1 = mcmc(
+        filter(
+          crc28.shape.ctrl.1,
+          chain == 1,
+          burnin == "no"
+        )$shapeCtrl1,
+        thin = 500
+      ),
+      c2 = mcmc(
+        filter(
+          crc28.shape.ctrl.1,
+          chain == 2,
+          burnin == "no"
+        )$shapeCtrl1,
+        thin = 500
+      )
+    )
+  ),
+  autoburnin = autoburnin
+)
+
+gr.crc28.shape.ctrl.1
+```
+
+### Shape controller 2
+
+```{r}
+gr.crc28.shape.ctrl.2 <- gelman.diag(
+  mcmc.list(
+    list(
+      c1 = mcmc(
+        filter(
+          crc28.shape.ctrl.2,
+          chain == 1,
+          burnin == "no"
+        )$shapeCtrl2,
+        thin = 500
+      ),
+      c2 = mcmc(
+        filter(
+          crc28.shape.ctrl.2,
+          chain == 2,
+          burnin == "no"
+        )$shapeCtrl2,
+        thin = 500
+      )
+    )
+  ),
+  autoburnin = autoburnin
+)
+
+gr.crc28.shape.ctrl.2
+```
+
+# CRC48
+
+## Load chains
+
+```{r}
+crc48_1 <- read.table(
+  "../crc48/results/stage1/phylogenetic_inference_dir/rmc_mudel_sa_stage_1/rmc_mudel_sa_stage_1.log",
+  header = TRUE
+)[1:8001, ]
+```
+
+```{r}
+crc48_2 <- read.table(
+  "../crc48/results_rep_2/stage1/phylogenetic_inference_dir/rmc_mudel_sa_stage_1/rmc_mudel_sa_stage_1.log",
+  header = TRUE
+)
+```
+
+## Trace plot
+
+```{r}
+crc48.burnin <- 0.1
+crc48.len <- min(nrow(crc48_1), nrow(crc48_2))
+```
+
+### Loglikelihood
+
+```{r, include=FALSE}
+crc48.likelihood <- rbind(
+  crc48_1[1:crc48.len, ] %>%
+    mutate(
+      likelihood = likelihood1 + likelihood2
+    ) %>%
+    select(
+      Sample,
+      likelihood
+    ) %>%
+    mutate(
+      chain = 1
+    ),
+  crc48_2[1:crc48.len, ] %>%
+    mutate(
+      likelihood = likelihood1 + likelihood2
+    ) %>%
+    select(
+      Sample,
+      likelihood
+    ) %>%
+    mutate(
+      chain = 2
+    )
+) %>%
+  mutate(
+    chain = factor(chain, levels = c(1, 2))
+  ) %>%
+  mutate(
+    burnin = if_else(
+      Sample <= crc48.burnin * (crc48.len - 1) * thin,
+      "yes",
+      "no"
+    )
+  )
+```
+
+```{r, include=FALSE}
+tp.crc48.likelihood.1 <- ggplot(
+  crc48.likelihood,
+  aes(
+    x = Sample,
+    y = likelihood,
+    shape = chain,
+    color = chain,
+    alpha = burnin
+  )
+) +
+  geom_line(
+    linewidth = linewidth.1
+  ) +
+  geom_vline(
+    xintercept = max(filter(crc48.likelihood, burnin == "yes")$Sample),
+    linetype="dashed",
+    color = "gray43",
+    size = 1 / .pt
+  ) +
+  ylab("Loglikelihood") +
+  scale_color_manual(
+    values = chain.color
+  ) +
+  scale_alpha_manual(
+    values = burnin.alpha
+  ) +
+  theme_bw() +
+  theme(
+    text = element_text(size = 7),
+    axis.title.x = element_blank(),
+    axis.text.x = element_blank(),
+    axis.ticks.x = element_blank(),
+    legend.position = "bottom",
+    panel.grid = element_blank()
+  )
+
+tp.crc48.likelihood.2 <- ggplot(
+  crc48.likelihood %>%
+    filter(
+      burnin == "no"
+    ),
+  aes(
+    x = Sample,
+    y = likelihood,
+    shape = chain,
+    color = chain,
+    alpha = burnin
+  )
+) +
+  geom_line(
+    linewidth = linewidth.2
+  ) +
+  geom_vline(
+    xintercept = max(filter(crc48.likelihood, burnin == "yes")$Sample),
+    linetype="dashed",
+    color = "gray43",
+    size = 1 / .pt
+  ) +
+  ylab("Loglikelihood") +
+  scale_color_manual(
+    values = chain.color
+  ) +
+  scale_alpha_manual(
+    values = burnin.alpha
+  ) +
+  theme_bw() +
+  theme(
+    text = element_text(size = 7),
+    axis.title.y = element_blank(),
+    axis.title.x = element_blank(),
+    axis.text.x = element_blank(),
+    axis.ticks.x = element_blank(),
+    legend.position = "bottom",
+    panel.grid = element_blank()
+  )
+```
+
+### Ado rate
+
+```{r, include=FALSE}
+crc48.ado.rate <- rbind(
+  crc48_1[1:crc48.len, ] %>%
+  select(
+    Sample,
+    adoRate
+  ) %>%
+  mutate(
+    chain = 1
+  ),
+  crc48_2[1:crc48.len, ] %>%
+  select(
+    Sample,
+    adoRate
+  ) %>%
+  mutate(
+    chain = 2
+  )
+) %>%
+  mutate(
+    chain = factor(chain, levels = c(1, 2))
+  ) %>%
+  mutate(
+    burnin = if_else(
+      Sample <= crc48.burnin * (crc48.len - 1) * thin,
+      "yes",
+      "no"
+    )
+  )
+```
+
+```{r}
+tp.crc48.ado.rate.1 <- ggplot(
+  crc48.ado.rate,
+  aes(
+    x = Sample,
+    y = adoRate,
+    shape = chain,
+    color = chain,
+    alpha = burnin
+  )
+) +
+  geom_line(
+    linewidth = linewidth.1
+  ) +
+  geom_vline(
+    xintercept = max(filter(crc48.ado.rate, burnin == "yes")$Sample),
+    linetype="dashed",
+    color = "gray43",
+    size = 1 / .pt
+  ) +
+  ylab("ADO rate") +
+  scale_color_manual(
+    values = chain.color
+  ) +
+  scale_alpha_manual(
+    values = burnin.alpha
+  ) +
+  theme_bw() +
+  theme(
+    text = element_text(size = 7),
+    axis.title.x = element_blank(),
+    axis.text.x = element_blank(),
+    axis.ticks.x = element_blank(),
+    legend.position = "bottom",
+    panel.grid = element_blank()
+  )
+
+tp.crc48.ado.rate.2 <- ggplot(
+  crc48.ado.rate %>%
+    filter(
+      burnin == "no"
+    ),
+  aes(
+    x = Sample,
+    y = adoRate,
+    shape = chain,
+    color = chain,
+    alpha = burnin
+  )
+) +
+  geom_line(
+    linewidth = linewidth.2
+  ) +
+  geom_vline(
+    xintercept = max(filter(crc48.ado.rate, burnin == "yes")$Sample),
+    linetype="dashed",
+    color = "gray43",
+    size = 1 / .pt
+  ) +
+  ylab("ADO rate") +
+  scale_color_manual(
+    values = chain.color
+  ) +
+  scale_alpha_manual(
+    values = burnin.alpha
+  ) +
+  theme_bw() +
+  theme(
+    text = element_text(size = 7),
+    axis.title.y = element_blank(),
+    axis.title.x = element_blank(),
+    axis.text.x = element_blank(),
+    axis.ticks.x = element_blank(),
+    legend.position = "bottom",
+    panel.grid = element_blank()
+  )
+```
+
+### Effective sequencing error rate
+
+```{r, include=FALSE}
+crc48.eff.seq.err.rate <- rbind(
+  crc48_1[1:crc48.len, ] %>%
+  select(
+    Sample,
+    effSeqErrRate
+  ) %>%
+  mutate(
+    chain = 1
+  ),
+  crc48_2[1:crc48.len, ] %>%
+  select(
+    Sample,
+    effSeqErrRate
+  ) %>%
+  mutate(
+    chain = 2
+  )
+) %>%
+  mutate(
+    chain = factor(chain, levels = c(1, 2))
+  ) %>%
+  mutate(
+    burnin = if_else(
+      Sample <= crc48.burnin * (crc48.len - 1) * thin,
+      "yes",
+      "no"
+    )
+  )
+```
+
+```{r}
+tp.crc48.eff.seq.err.rate.1 <- ggplot(
+  crc48.eff.seq.err.rate,
+  aes(
+    x = Sample,
+    y = effSeqErrRate,
+    shape = chain,
+    color = chain,
+    alpha = burnin
+  )
+) +
+  geom_line(
+    linewidth = linewidth.1
+  ) +
+  geom_vline(
+    xintercept = max(filter(crc48.eff.seq.err.rate, burnin == "yes")$Sample),
+    linetype="dashed",
+    color = "gray43",
+    size = 1 / .pt
+  ) +
+  ylab("Effective sequencing\nerror rate") +
+  scale_color_manual(
+    values = chain.color
+  ) +
+  scale_alpha_manual(
+    values = burnin.alpha
+  ) +
+  theme_bw() +
+  theme(
+    text = element_text(size = 7),
+    axis.title.x = element_blank(),
+    axis.text.x = element_blank(),
+    axis.ticks.x = element_blank(),
+    legend.position = "bottom",
+    panel.grid = element_blank()
+  )
+
+tp.crc48.eff.seq.err.rate.2 <- ggplot(
+  crc48.eff.seq.err.rate %>%
+    filter(
+      burnin == "no"
+    ),
+  aes(
+    x = Sample,
+    y = effSeqErrRate,
+    shape = chain,
+    color = chain,
+    alpha = burnin
+  )
+) +
+  geom_line(
+    linewidth = linewidth.2
+  ) +
+  geom_vline(
+    xintercept = max(filter(crc48.eff.seq.err.rate, burnin == "yes")$Sample),
+    linetype="dashed",
+    color = "gray43",
+    size = 1 / .pt
+  ) +
+  ylab("Effective sequencing\nerror rate") +
+  scale_color_manual(
+    values = chain.color
+  ) +
+  scale_alpha_manual(
+    values = burnin.alpha
+  ) +
+  theme_bw() +
+  theme(
+    text = element_text(size = 7),
+    axis.title.y = element_blank(),
+    axis.title.x = element_blank(),
+    axis.text.x = element_blank(),
+    axis.ticks.x = element_blank(),
+    legend.position = "bottom",
+    panel.grid = element_blank()
+  )
+```
+
+### Allelic sequencing coverage
+
+```{r, include=FALSE}
+crc48.allelic.seq.cov <- rbind(
+  crc48_1[1:crc48.len, ] %>%
+  select(
+    Sample,
+    allelicSeqCov
+  ) %>%
+  mutate(
+    chain = 1
+  ),
+  crc48_2[1:crc48.len, ] %>%
+  select(
+    Sample,
+    allelicSeqCov
+  ) %>%
+  mutate(
+    chain = 2
+  )
+) %>%
+  mutate(
+    chain = factor(chain, levels = c(1, 2))
+  ) %>%
+  mutate(
+    burnin = if_else(
+      Sample <= crc48.burnin * (crc48.len - 1) * thin,
+      "yes",
+      "no"
+    )
+  )
+```
+
+```{r}
+tp.crc48.allelic.seq.cov.1 <- ggplot(
+  crc48.allelic.seq.cov,
+  aes(
+    x = Sample,
+    y = allelicSeqCov,
+    shape = chain,
+    color = chain,
+    alpha = burnin
+  )
+) +
+  geom_line(
+    linewidth = linewidth.1
+  ) +
+  geom_vline(
+    xintercept = max(filter(crc48.allelic.seq.cov, burnin == "yes")$Sample),
+    linetype="dashed",
+    color = "gray43",
+    size = 1 / .pt
+  ) +
+  ylab("Allelic sequencing\ncoverage") +
+  scale_color_manual(
+    values = chain.color
+  ) +
+  scale_alpha_manual(
+    values = burnin.alpha
+  ) +
+  theme_bw() +
+  theme(
+    text = element_text(size = 7),
+    axis.title.x = element_blank(),
+    axis.text.x = element_blank(),
+    axis.ticks.x = element_blank(),
+    legend.position = "bottom",
+    panel.grid = element_blank()
+  )
+
+tp.crc48.allelic.seq.cov.2 <- ggplot(
+  crc48.allelic.seq.cov %>%
+    filter(
+      burnin == "no"
+    ),
+  aes(
+    x = Sample,
+    y = allelicSeqCov,
+    shape = chain,
+    color = chain,
+    alpha = burnin
+  )
+) +
+  geom_line(
+    linewidth = linewidth.2
+  ) +
+  geom_vline(
+    xintercept = max(filter(crc48.allelic.seq.cov, burnin == "yes")$Sample),
+    linetype="dashed",
+    color = "gray43",
+    size = 1 / .pt
+  ) +
+  ylab("Allelic sequencing\ncoverage") +
+  scale_color_manual(
+    values = chain.color
+  ) +
+  scale_alpha_manual(
+    values = burnin.alpha
+  ) +
+  theme_bw() +
+  theme(
+    text = element_text(size = 7),
+    axis.title.y = element_blank(),
+    axis.title.x = element_blank(),
+    axis.text.x = element_blank(),
+    axis.ticks.x = element_blank(),
+    legend.position = "bottom",
+    panel.grid = element_blank()
+  )
+```
+
+### Allelic sequencing coverage raw variance
+
+```{r, include=FALSE}
+crc48.allelic.seq.cov.raw.var <- rbind(
+  crc48_1[1:crc48.len, ] %>%
+  select(
+    Sample,
+    allelicSeqCovRawVar
+  ) %>%
+  mutate(
+    chain = 1
+  ),
+  crc48_2[1:crc48.len, ] %>%
+  select(
+    Sample,
+    allelicSeqCovRawVar
+  ) %>%
+  mutate(
+    chain = 2
+  )
+) %>%
+  mutate(
+    chain = factor(chain, levels = c(1, 2))
+  ) %>%
+  mutate(
+    burnin = if_else(
+      Sample <= crc48.burnin * (crc48.len - 1) * thin,
+      "yes",
+      "no"
+    )
+  )
+```
+
+```{r}
+tp.crc48.allelic.seq.cov.raw.var.1 <- ggplot(
+  crc48.allelic.seq.cov.raw.var,
+  aes(
+    x = Sample,
+    y = allelicSeqCovRawVar,
+    shape = chain,
+    color = chain,
+    alpha = burnin
+  )
+) +
+  geom_line(
+    linewidth = linewidth.1
+  ) +
+  geom_vline(
+    xintercept = max(filter(crc48.allelic.seq.cov.raw.var, burnin == "yes")$Sample),
+    linetype="dashed",
+    color = "gray43",
+    size = 1 / .pt
+  ) +
+  ylab("Allelic sequencing\ncoverage raw variance") +
+  scale_color_manual(
+    values = chain.color
+  ) +
+  scale_alpha_manual(
+    values = burnin.alpha
+  ) +
+  theme_bw() +
+  theme(
+    text = element_text(size = 7),
+    axis.title.x = element_blank(),
+    axis.text.x = element_blank(),
+    axis.ticks.x = element_blank(),
+    legend.position = "bottom",
+    panel.grid = element_blank()
+  )
+
+tp.crc48.allelic.seq.cov.raw.var.2 <- ggplot(
+  crc48.allelic.seq.cov.raw.var %>%
+    filter(
+      burnin == "no"
+    ),
+  aes(
+    x = Sample,
+    y = allelicSeqCovRawVar,
+    shape = chain,
+    color = chain,
+    alpha = burnin
+  )
+) +
+  geom_line(
+    linewidth = linewidth.2
+  ) +
+  geom_vline(
+    xintercept = max(filter(crc48.allelic.seq.cov.raw.var, burnin == "yes")$Sample),
+    linetype="dashed",
+    color = "gray43",
+    size = 1 / .pt
+  ) +
+  ylab("Allelic sequencing\ncoverage raw variance") +
+  scale_color_manual(
+    values = chain.color
+  ) +
+  scale_alpha_manual(
+    values = burnin.alpha
+  ) +
+  theme_bw() +
+  theme(
+    text = element_text(size = 7),
+    axis.title.y = element_blank(),
+    axis.title.x = element_blank(),
+    axis.text.x = element_blank(),
+    axis.ticks.x = element_blank(),
+    legend.position = "bottom",
+    panel.grid = element_blank()
+  )
+```
+
+### Shape controller 1
+
+```{r, include=FALSE}
+crc48.shape.ctrl.1 <- rbind(
+  crc48_1[1:crc48.len, ] %>%
+  select(
+    Sample,
+    shapeCtrl1
+  ) %>%
+  mutate(
+    chain = 1
+  ),
+  crc48_2[1:crc48.len, ] %>%
+  select(
+    Sample,
+    shapeCtrl1
+  ) %>%
+  mutate(
+    chain = 2
+  )
+) %>%
+  mutate(
+    chain = factor(chain, levels = c(1, 2))
+  ) %>%
+  mutate(
+    burnin = if_else(
+      Sample <= crc48.burnin * (crc48.len - 1) * thin,
+      "yes",
+      "no"
+    )
+  )
+```
+
+```{r}
+tp.crc48.shape.ctrl.1.1 <- ggplot(
+  crc48.shape.ctrl.1,
+  aes(
+    x = Sample,
+    y = shapeCtrl1,
+    shape = chain,
+    color = chain,
+    alpha = burnin
+  )
+) +
+  geom_line(
+    linewidth = linewidth.1
+  ) +
+  geom_vline(
+    xintercept = max(filter(crc48.shape.ctrl.1, burnin == "yes")$Sample),
+    linetype="dashed",
+    color = "gray43",
+    size = 1 / .pt
+  ) +
+  ylab("Shape controller 1") +
+  scale_color_manual(
+    values = chain.color
+  ) +
+  scale_alpha_manual(
+    values = burnin.alpha
+  ) +
+  theme_bw() +
+  theme(
+    text = element_text(size = 7),
+    axis.title.x = element_blank(),
+    axis.text.x = element_blank(),
+    axis.ticks.x = element_blank(),
+    legend.position = "bottom",
+    panel.grid = element_blank()
+  )
+
+tp.crc48.shape.ctrl.1.2 <- ggplot(
+  crc48.shape.ctrl.1 %>%
+    filter(
+      burnin == "no"
+    ),
+  aes(
+    x = Sample,
+    y = shapeCtrl1,
+    shape = chain,
+    color = chain,
+    alpha = burnin
+  )
+) +
+  geom_line(
+    linewidth = linewidth.2
+  ) +
+  geom_vline(
+    xintercept = max(filter(crc48.shape.ctrl.1, burnin == "yes")$Sample),
+    linetype="dashed",
+    color = "gray43",
+    size = 1 / .pt
+  ) +
+  ylab("Shape controller 1") +
+  scale_color_manual(
+    values = chain.color
+  ) +
+  scale_alpha_manual(
+    values = burnin.alpha
+  ) +
+  theme_bw() +
+  theme(
+    text = element_text(size = 7),
+    axis.title.y = element_blank(),
+    axis.title.x = element_blank(),
+    axis.text.x = element_blank(),
+    axis.ticks.x = element_blank(),
+    legend.position = "bottom",
+    panel.grid = element_blank()
+  )
+```
+
+### Shape controller 2
+
+```{r, include=FALSE}
+crc48.shape.ctrl.2 <- rbind(
+  crc48_1[1:crc48.len, ] %>%
+  select(
+    Sample,
+    shapeCtrl2
+  ) %>%
+  mutate(
+    chain = 1
+  ),
+  crc48_2[1:crc48.len, ] %>%
+  select(
+    Sample,
+    shapeCtrl2
+  ) %>%
+  mutate(
+    chain = 2
+  )
+) %>%
+  mutate(
+    chain = factor(chain, levels = c(1, 2))
+  ) %>%
+  mutate(
+    burnin = if_else(
+      Sample <= crc48.burnin * (crc48.len - 1) * thin,
+      "yes",
+      "no"
+    )
+  )
+```
+
+```{r}
+tp.crc48.shape.ctrl.2.1 <- ggplot(
+  crc48.shape.ctrl.2,
+  aes(
+    x = Sample,
+    y = shapeCtrl2,
+    shape = chain,
+    color = chain,
+    alpha = burnin
+  )
+) +
+  geom_line(
+    linewidth = linewidth.1
+  ) +
+  geom_vline(
+    xintercept = max(filter(crc48.shape.ctrl.2, burnin == "yes")$Sample),
+    linetype="dashed",
+    color = "gray43",
+    size = 1 / .pt
+  ) +
+  ylab("Shape controller 2") +
+  scale_color_manual(
+    values = chain.color
+  ) +
+  scale_alpha_manual(
+    values = burnin.alpha
+  ) +
+  theme_bw() +
+  theme(
+    text = element_text(size = 7),
+    legend.position = "bottom",
+    panel.grid = element_blank()
+  )
+
+tp.crc48.shape.ctrl.2.2 <- ggplot(
+  crc48.shape.ctrl.2 %>%
+    filter(
+      burnin == "no"
+    ),
+  aes(
+    x = Sample,
+    y = shapeCtrl2,
+    shape = chain,
+    color = chain,
+    alpha = burnin
+  )
+) +
+  geom_line(
+    linewidth = linewidth.2
+  ) +
+  geom_vline(
+    xintercept = max(filter(crc48.shape.ctrl.2, burnin == "yes")$Sample),
+    linetype="dashed",
+    color = "gray43",
+    size = 1 / .pt
+  ) +
+  ylab("Shape controller 2") +
+  scale_color_manual(
+    values = chain.color
+  ) +
+  scale_alpha_manual(
+    values = burnin.alpha
+  ) +
+  theme_bw() +
+  theme(
+    text = element_text(size = 7),
+    axis.title.y = element_blank(),
+    legend.position = "bottom",
+    panel.grid = element_blank()
+  )
+```
+
+### Plot all
+
+```{r}
+tp.crc48 <- ggarrange(
+  ggarrange(
+    tp.crc48.likelihood.1 + no.legend,
+    tp.crc48.ado.rate.1 + no.legend,
+    tp.crc48.eff.seq.err.rate.1 + no.legend,
+    tp.crc48.allelic.seq.cov.1 + no.legend,
+    tp.crc48.allelic.seq.cov.raw.var.1 + no.legend,
+    tp.crc48.shape.ctrl.1.1 + no.legend,
+    tp.crc48.shape.ctrl.2.1 + no.legend,
+    ncol = 1,
+    align = "v",
+    heights = c(
+      rep(
+        1,
+        6
+      ),
+      1.2
+    ),
+    labels = c(
+      "a",
+      "c",
+      "e",
+      "g",
+      "i",
+      "k",
+      "m"
+    ),
+    font.label = list(face = "bold", size = 7)
+  ),
+  ggarrange(
+    tp.crc48.likelihood.2 + no.legend,
+    tp.crc48.ado.rate.2 + no.legend,
+    tp.crc48.eff.seq.err.rate.2 + no.legend,
+    tp.crc48.allelic.seq.cov.2 + no.legend,
+    tp.crc48.allelic.seq.cov.raw.var.2 + no.legend,
+    tp.crc48.shape.ctrl.1.2 + no.legend,
+    tp.crc48.shape.ctrl.2.2 + no.legend,
+    ncol = 1,
+    align = "v",
+    heights = c(
+      rep(
+        1,
+        6
+      ),
+      1.2
+    ),
+    labels = c(
+      "b",
+      "d",
+      "f",
+      "h",
+      "j",
+      "l",
+      "n"
+    ),
+    font.label = list(face = "bold", size = 7)
+  ),
+  nrow = 1,
+  align = "h",
+  common.legend = TRUE,
+  legend = "bottom",
+  legend.grob = get_legend(tp.crc48.likelihood.1)
+)
+```
+
+```{r, include=FALSE}
+ggsave(
+  "../figs/crc48_trace_plot.pdf",
+  tp.crc48,
+  device = "pdf",
+  width = 183,
+  height = 252,
+  units = "mm",
+  dpi = 300
+)
+```
+
+## Gelman-Rubin's criterion
+
+### Ado rate
+
+```{r}
+gr.crc48.ado.rate <- gelman.diag(
+  mcmc.list(
+    list(
+      c1 = mcmc(
+        filter(
+          crc48.ado.rate,
+          chain == 1,
+          burnin == "no"
+        )$adoRate,
+        thin = 500
+      ),
+      c2 = mcmc(
+        filter(
+          crc48.ado.rate,
+          chain == 2,
+          burnin == "no"
+        )$adoRate,
+        thin = 500
+      )
+    )
+  ),
+  autoburnin = autoburnin
+)
+
+gr.crc48.ado.rate
+```
+
+### Effective sequencing error rate
+
+```{r}
+gr.crc48.eff.seq.err.rate <- gelman.diag(
+  mcmc.list(
+    list(
+      c1 = mcmc(
+        filter(
+          crc48.eff.seq.err.rate,
+          chain == 1,
+          burnin == "no"
+        )$effSeqErrRate,
+        thin = 500
+      ),
+      c2 = mcmc(
+        filter(
+          crc48.eff.seq.err.rate,
+          chain == 2,
+          burnin == "no"
+        )$effSeqErrRate,
+        thin = 500
+      )
+    )
+  ),
+  autoburnin = autoburnin
+)
+
+gr.crc48.eff.seq.err.rate
+```
+
+### Allelic sequencing coverage
+
+```{r}
+gr.crc48.allelic.seq.cov <- gelman.diag(
+  mcmc.list(
+    list(
+      c1 = mcmc(
+        filter(
+          crc48.allelic.seq.cov,
+          chain == 1,
+          burnin == "no"
+        )$allelicSeqCov,
+        thin = 500
+      ),
+      c2 = mcmc(
+        filter(
+          crc48.allelic.seq.cov,
+          chain == 2,
+          burnin == "no"
+        )$allelicSeqCov,
+        thin = 500
+      )
+    )
+  ),
+  autoburnin = autoburnin
+)
+
+gr.crc48.allelic.seq.cov
+```
+
+### Allelic sequencing coverage raw variance
+
+```{r}
+gr.crc48.allelic.seq.cov.raw.var <- gelman.diag(
+  mcmc.list(
+    list(
+      c1 = mcmc(
+        filter(
+          crc48.allelic.seq.cov.raw.var,
+          chain == 1,
+          burnin == "no"
+        )$allelicSeqCovRawVar,
+        thin = 500
+      ),
+      c2 = mcmc(
+        filter(
+          crc48.allelic.seq.cov.raw.var,
+          chain == 2,
+          burnin == "no"
+        )$allelicSeqCovRawVar,
+        thin = 500
+      )
+    )
+  ),
+  autoburnin = autoburnin
+)
+
+gr.crc48.allelic.seq.cov.raw.var
+```
+
+### Shape controller 1
+
+```{r}
+gr.crc48.shape.ctrl.1 <- gelman.diag(
+  mcmc.list(
+    list(
+      c1 = mcmc(
+        filter(
+          crc48.shape.ctrl.1,
+          chain == 1,
+          burnin == "no"
+        )$shapeCtrl1,
+        thin = 500
+      ),
+      c2 = mcmc(
+        filter(
+          crc48.shape.ctrl.1,
+          chain == 2,
+          burnin == "no"
+        )$shapeCtrl1,
+        thin = 500
+      )
+    )
+  ),
+  autoburnin = autoburnin
+)
+
+gr.crc48.shape.ctrl.1
+```
+
+### Shape controller 2
+
+```{r}
+gr.crc48.shape.ctrl.2 <- gelman.diag(
+  mcmc.list(
+    list(
+      c1 = mcmc(
+        filter(
+          crc48.shape.ctrl.2,
+          chain == 1,
+          burnin == "no"
+        )$shapeCtrl2,
+        thin = 500
+      ),
+      c2 = mcmc(
+        filter(
+          crc48.shape.ctrl.2,
+          chain == 2,
+          burnin == "no"
+        )$shapeCtrl2,
+        thin = 500
+      )
+    )
+  ),
+  autoburnin = autoburnin
+)
+
+gr.crc48.shape.ctrl.2
+```
+
+# TNBC16
+
+## Load chains
+
+```{r}
+tnbc16_1 <- read.table(
+  "../tnbc16/results/stage1/phylogenetic_inference_dir/rmc_mudel_sa_stage_1/rmc_mudel_sa_stage_1.log",
+  header = TRUE
+)
+```
+
+```{r}
+tnbc16_2 <- read.table(
+  "../tnbc16/results_rep_2/stage1/phylogenetic_inference_dir/rmc_mudel_sa_stage_1/rmc_mudel_sa_stage_1.log",
+  header = TRUE
+)
+```
+
+## Trace plot
+
+```{r}
+tnbc16.burnin <- 0.1
+tnbc16.len <- min(nrow(tnbc16_1), nrow(tnbc16_2))
+```
+
+### Loglikelihood
+
+```{r, include=FALSE}
+tnbc16.likelihood <- rbind(
+  tnbc16_1[1:tnbc16.len, ] %>%
+    mutate(
+      likelihood = likelihood1 + likelihood2
+    ) %>%
+    select(
+      Sample,
+      likelihood
+    ) %>%
+    mutate(
+      chain = 1
+    ),
+  tnbc16_2[1:tnbc16.len, ] %>%
+    mutate(
+      likelihood = likelihood1 + likelihood2
+    ) %>%
+    select(
+      Sample,
+      likelihood
+    ) %>%
+    mutate(
+      chain = 2
+    )
+) %>%
+  mutate(
+    chain = factor(chain, levels = c(1, 2))
+  ) %>%
+  mutate(
+    burnin = if_else(
+      Sample <= tnbc16.burnin * (tnbc16.len - 1) * thin,
+      "yes",
+      "no"
+    )
+  )
+```
+
+```{r, include=FALSE}
+tp.tnbc16.likelihood.1 <- ggplot(
+  tnbc16.likelihood,
+  aes(
+    x = Sample,
+    y = likelihood,
+    shape = chain,
+    color = chain,
+    alpha = burnin
+  )
+) +
+  geom_line(
+    linewidth = linewidth.1
+  ) +
+  geom_vline(
+    xintercept = max(filter(tnbc16.likelihood, burnin == "yes")$Sample),
+    linetype="dashed",
+    color = "gray43",
+    size = 1 / .pt
+  ) +
+  ylab("Loglikelihood") +
+  scale_color_manual(
+    values = chain.color
+  ) +
+  scale_alpha_manual(
+    values = burnin.alpha
+  ) +
+  theme_bw() +
+  theme(
+    text = element_text(size = 7),
+    axis.title.x = element_blank(),
+    axis.text.x = element_blank(),
+    axis.ticks.x = element_blank(),
+    legend.position = "bottom",
+    panel.grid = element_blank()
+  )
+
+tp.tnbc16.likelihood.2 <- ggplot(
+  tnbc16.likelihood %>%
+    filter(
+      burnin == "no"
+    ),
+  aes(
+    x = Sample,
+    y = likelihood,
+    shape = chain,
+    color = chain,
+    alpha = burnin
+  )
+) +
+  geom_line(
+    linewidth = linewidth.2
+  ) +
+  geom_vline(
+    xintercept = max(filter(tnbc16.likelihood, burnin == "yes")$Sample),
+    linetype="dashed",
+    color = "gray43",
+    size = 1 / .pt
+  ) +
+  ylab("Loglikelihood") +
+  scale_color_manual(
+    values = chain.color
+  ) +
+  scale_alpha_manual(
+    values = burnin.alpha
+  ) +
+  theme_bw() +
+  theme(
+    text = element_text(size = 7),
+    axis.title.y = element_blank(),
+    axis.title.x = element_blank(),
+    axis.text.x = element_blank(),
+    axis.ticks.x = element_blank(),
+    legend.position = "bottom",
+    panel.grid = element_blank()
+  )
+```
+
+### Ado rate
+
+```{r, include=FALSE}
+tnbc16.ado.rate <- rbind(
+  tnbc16_1[1:tnbc16.len, ] %>%
+  select(
+    Sample,
+    adoRate
+  ) %>%
+  mutate(
+    chain = 1
+  ),
+  tnbc16_2[1:tnbc16.len, ] %>%
+  select(
+    Sample,
+    adoRate
+  ) %>%
+  mutate(
+    chain = 2
+  )
+) %>%
+  mutate(
+    chain = factor(chain, levels = c(1, 2))
+  ) %>%
+  mutate(
+    burnin = if_else(
+      Sample <= tnbc16.burnin * (tnbc16.len - 1) * thin,
+      "yes",
+      "no"
+    )
+  )
+```
+
+```{r}
+tp.tnbc16.ado.rate.1 <- ggplot(
+  tnbc16.ado.rate,
+  aes(
+    x = Sample,
+    y = adoRate,
+    shape = chain,
+    color = chain,
+    alpha = burnin
+  )
+) +
+  geom_line(
+    linewidth = linewidth.1
+  ) +
+  geom_vline(
+    xintercept = max(filter(tnbc16.ado.rate, burnin == "yes")$Sample),
+    linetype="dashed",
+    color = "gray43",
+    size = 1 / .pt
+  ) +
+  ylab("ADO rate") +
+  scale_color_manual(
+    values = chain.color
+  ) +
+  scale_alpha_manual(
+    values = burnin.alpha
+  ) +
+  theme_bw() +
+  theme(
+    text = element_text(size = 7),
+    axis.title.x = element_blank(),
+    axis.text.x = element_blank(),
+    axis.ticks.x = element_blank(),
+    legend.position = "bottom",
+    panel.grid = element_blank()
+  )
+
+tp.tnbc16.ado.rate.2 <- ggplot(
+  tnbc16.ado.rate %>%
+    filter(
+      burnin == "no"
+    ),
+  aes(
+    x = Sample,
+    y = adoRate,
+    shape = chain,
+    color = chain,
+    alpha = burnin
+  )
+) +
+  geom_line(
+    linewidth = linewidth.2
+  ) +
+  geom_vline(
+    xintercept = max(filter(tnbc16.ado.rate, burnin == "yes")$Sample),
+    linetype="dashed",
+    color = "gray43",
+    size = 1 / .pt
+  ) +
+  ylab("ADO rate") +
+  scale_color_manual(
+    values = chain.color
+  ) +
+  scale_alpha_manual(
+    values = burnin.alpha
+  ) +
+  theme_bw() +
+  theme(
+    text = element_text(size = 7),
+    axis.title.y = element_blank(),
+    axis.title.x = element_blank(),
+    axis.text.x = element_blank(),
+    axis.ticks.x = element_blank(),
+    legend.position = "bottom",
+    panel.grid = element_blank()
+  )
+```
+
+### Effective sequencing error rate
+
+```{r, include=FALSE}
+tnbc16.eff.seq.err.rate <- rbind(
+  tnbc16_1[1:tnbc16.len, ] %>%
+  select(
+    Sample,
+    effSeqErrRate
+  ) %>%
+  mutate(
+    chain = 1
+  ),
+  tnbc16_2[1:tnbc16.len, ] %>%
+  select(
+    Sample,
+    effSeqErrRate
+  ) %>%
+  mutate(
+    chain = 2
+  )
+) %>%
+  mutate(
+    chain = factor(chain, levels = c(1, 2))
+  ) %>%
+  mutate(
+    burnin = if_else(
+      Sample <= tnbc16.burnin * (tnbc16.len - 1) * thin,
+      "yes",
+      "no"
+    )
+  )
+```
+
+```{r}
+tp.tnbc16.eff.seq.err.rate.1 <- ggplot(
+  tnbc16.eff.seq.err.rate,
+  aes(
+    x = Sample,
+    y = effSeqErrRate,
+    shape = chain,
+    color = chain,
+    alpha = burnin
+  )
+) +
+  geom_line(
+    linewidth = linewidth.1
+  ) +
+  geom_vline(
+    xintercept = max(filter(tnbc16.eff.seq.err.rate, burnin == "yes")$Sample),
+    linetype="dashed",
+    color = "gray43",
+    size = 1 / .pt
+  ) +
+  ylab("Effective sequencing\nerror rate") +
+  scale_color_manual(
+    values = chain.color
+  ) +
+  scale_alpha_manual(
+    values = burnin.alpha
+  ) +
+  theme_bw() +
+  theme(
+    text = element_text(size = 7),
+    axis.title.x = element_blank(),
+    axis.text.x = element_blank(),
+    axis.ticks.x = element_blank(),
+    legend.position = "bottom",
+    panel.grid = element_blank()
+  )
+
+tp.tnbc16.eff.seq.err.rate.2 <- ggplot(
+  tnbc16.eff.seq.err.rate %>%
+    filter(
+      burnin == "no"
+    ),
+  aes(
+    x = Sample,
+    y = effSeqErrRate,
+    shape = chain,
+    color = chain,
+    alpha = burnin
+  )
+) +
+  geom_line(
+    linewidth = linewidth.2
+  ) +
+  geom_vline(
+    xintercept = max(filter(tnbc16.eff.seq.err.rate, burnin == "yes")$Sample),
+    linetype="dashed",
+    color = "gray43",
+    size = 1 / .pt
+  ) +
+  ylab("Effective sequencing\nerror rate") +
+  scale_color_manual(
+    values = chain.color
+  ) +
+  scale_alpha_manual(
+    values = burnin.alpha
+  ) +
+  theme_bw() +
+  theme(
+    text = element_text(size = 7),
+    axis.title.y = element_blank(),
+    axis.title.x = element_blank(),
+    axis.text.x = element_blank(),
+    axis.ticks.x = element_blank(),
+    legend.position = "bottom",
+    panel.grid = element_blank()
+  )
+```
+
+### Allelic sequencing coverage
+
+```{r, include=FALSE}
+tnbc16.allelic.seq.cov <- rbind(
+  tnbc16_1[1:tnbc16.len, ] %>%
+  select(
+    Sample,
+    allelicSeqCov
+  ) %>%
+  mutate(
+    chain = 1
+  ),
+  tnbc16_2[1:tnbc16.len, ] %>%
+  select(
+    Sample,
+    allelicSeqCov
+  ) %>%
+  mutate(
+    chain = 2
+  )
+) %>%
+  mutate(
+    chain = factor(chain, levels = c(1, 2))
+  ) %>%
+  mutate(
+    burnin = if_else(
+      Sample <= tnbc16.burnin * (tnbc16.len - 1) * thin,
+      "yes",
+      "no"
+    )
+  )
+```
+
+```{r}
+tp.tnbc16.allelic.seq.cov.1 <- ggplot(
+  tnbc16.allelic.seq.cov,
+  aes(
+    x = Sample,
+    y = allelicSeqCov,
+    shape = chain,
+    color = chain,
+    alpha = burnin
+  )
+) +
+  geom_line(
+    linewidth = linewidth.1
+  ) +
+  geom_vline(
+    xintercept = max(filter(tnbc16.allelic.seq.cov, burnin == "yes")$Sample),
+    linetype="dashed",
+    color = "gray43",
+    size = 1 / .pt
+  ) +
+  ylab("Allelic sequencing\ncoverage") +
+  scale_color_manual(
+    values = chain.color
+  ) +
+  scale_alpha_manual(
+    values = burnin.alpha
+  ) +
+  theme_bw() +
+  theme(
+    text = element_text(size = 7),
+    axis.title.x = element_blank(),
+    axis.text.x = element_blank(),
+    axis.ticks.x = element_blank(),
+    legend.position = "bottom",
+    panel.grid = element_blank()
+  )
+
+tp.tnbc16.allelic.seq.cov.2 <- ggplot(
+  tnbc16.allelic.seq.cov %>%
+    filter(
+      burnin == "no"
+    ),
+  aes(
+    x = Sample,
+    y = allelicSeqCov,
+    shape = chain,
+    color = chain,
+    alpha = burnin
+  )
+) +
+  geom_line(
+    linewidth = linewidth.2
+  ) +
+  geom_vline(
+    xintercept = max(filter(tnbc16.allelic.seq.cov, burnin == "yes")$Sample),
+    linetype="dashed",
+    color = "gray43",
+    size = 1 / .pt
+  ) +
+  ylab("Allelic sequencing\ncoverage") +
+  scale_color_manual(
+    values = chain.color
+  ) +
+  scale_alpha_manual(
+    values = burnin.alpha
+  ) +
+  theme_bw() +
+  theme(
+    text = element_text(size = 7),
+    axis.title.y = element_blank(),
+    axis.title.x = element_blank(),
+    axis.text.x = element_blank(),
+    axis.ticks.x = element_blank(),
+    legend.position = "bottom",
+    panel.grid = element_blank()
+  )
+```
+
+### Allelic sequencing coverage raw variance
+
+```{r, include=FALSE}
+tnbc16.allelic.seq.cov.raw.var <- rbind(
+  tnbc16_1[1:tnbc16.len, ] %>%
+  select(
+    Sample,
+    allelicSeqCovRawVar
+  ) %>%
+  mutate(
+    chain = 1
+  ),
+  tnbc16_2[1:tnbc16.len, ] %>%
+  select(
+    Sample,
+    allelicSeqCovRawVar
+  ) %>%
+  mutate(
+    chain = 2
+  )
+) %>%
+  mutate(
+    chain = factor(chain, levels = c(1, 2))
+  ) %>%
+  mutate(
+    burnin = if_else(
+      Sample <= tnbc16.burnin * (tnbc16.len - 1) * thin,
+      "yes",
+      "no"
+    )
+  )
+```
+
+```{r}
+tp.tnbc16.allelic.seq.cov.raw.var.1 <- ggplot(
+  tnbc16.allelic.seq.cov.raw.var,
+  aes(
+    x = Sample,
+    y = allelicSeqCovRawVar,
+    shape = chain,
+    color = chain,
+    alpha = burnin
+  )
+) +
+  geom_line(
+    linewidth = linewidth.1
+  ) +
+  geom_vline(
+    xintercept = max(filter(tnbc16.allelic.seq.cov.raw.var, burnin == "yes")$Sample),
+    linetype="dashed",
+    color = "gray43",
+    size = 1 / .pt
+  ) +
+  ylab("Allelic sequencing\ncoverage raw variance") +
+  scale_color_manual(
+    values = chain.color
+  ) +
+  scale_alpha_manual(
+    values = burnin.alpha
+  ) +
+  theme_bw() +
+  theme(
+    text = element_text(size = 7),
+    axis.title.x = element_blank(),
+    axis.text.x = element_blank(),
+    axis.ticks.x = element_blank(),
+    legend.position = "bottom",
+    panel.grid = element_blank()
+  )
+
+tp.tnbc16.allelic.seq.cov.raw.var.2 <- ggplot(
+  tnbc16.allelic.seq.cov.raw.var %>%
+    filter(
+      burnin == "no"
+    ),
+  aes(
+    x = Sample,
+    y = allelicSeqCovRawVar,
+    shape = chain,
+    color = chain,
+    alpha = burnin
+  )
+) +
+  geom_line(
+    linewidth = linewidth.2
+  ) +
+  geom_vline(
+    xintercept = max(filter(tnbc16.allelic.seq.cov.raw.var, burnin == "yes")$Sample),
+    linetype="dashed",
+    color = "gray43",
+    size = 1 / .pt
+  ) +
+  ylab("Allelic sequencing\ncoverage raw variance") +
+  scale_color_manual(
+    values = chain.color
+  ) +
+  scale_alpha_manual(
+    values = burnin.alpha
+  ) +
+  theme_bw() +
+  theme(
+    text = element_text(size = 7),
+    axis.title.y = element_blank(),
+    axis.title.x = element_blank(),
+    axis.text.x = element_blank(),
+    axis.ticks.x = element_blank(),
+    legend.position = "bottom",
+    panel.grid = element_blank()
+  )
+```
+
+### Shape controller 1
+
+```{r, include=FALSE}
+tnbc16.shape.ctrl.1 <- rbind(
+  tnbc16_1[1:tnbc16.len, ] %>%
+  select(
+    Sample,
+    shapeCtrl1
+  ) %>%
+  mutate(
+    chain = 1
+  ),
+  tnbc16_2[1:tnbc16.len, ] %>%
+  select(
+    Sample,
+    shapeCtrl1
+  ) %>%
+  mutate(
+    chain = 2
+  )
+) %>%
+  mutate(
+    chain = factor(chain, levels = c(1, 2))
+  ) %>%
+  mutate(
+    burnin = if_else(
+      Sample <= tnbc16.burnin * (tnbc16.len - 1) * thin,
+      "yes",
+      "no"
+    )
+  )
+```
+
+```{r}
+tp.tnbc16.shape.ctrl.1.1 <- ggplot(
+  tnbc16.shape.ctrl.1,
+  aes(
+    x = Sample,
+    y = shapeCtrl1,
+    shape = chain,
+    color = chain,
+    alpha = burnin
+  )
+) +
+  geom_line(
+    linewidth = linewidth.1
+  ) +
+  geom_vline(
+    xintercept = max(filter(tnbc16.shape.ctrl.1, burnin == "yes")$Sample),
+    linetype="dashed",
+    color = "gray43",
+    size = 1 / .pt
+  ) +
+  ylab("Shape controller 1") +
+  scale_color_manual(
+    values = chain.color
+  ) +
+  scale_alpha_manual(
+    values = burnin.alpha
+  ) +
+  theme_bw() +
+  theme(
+    text = element_text(size = 7),
+    axis.title.x = element_blank(),
+    axis.text.x = element_blank(),
+    axis.ticks.x = element_blank(),
+    legend.position = "bottom",
+    panel.grid = element_blank()
+  )
+
+tp.tnbc16.shape.ctrl.1.2 <- ggplot(
+  tnbc16.shape.ctrl.1 %>%
+    filter(
+      burnin == "no"
+    ),
+  aes(
+    x = Sample,
+    y = shapeCtrl1,
+    shape = chain,
+    color = chain,
+    alpha = burnin
+  )
+) +
+  geom_line(
+    linewidth = linewidth.2
+  ) +
+  geom_vline(
+    xintercept = max(filter(tnbc16.shape.ctrl.1, burnin == "yes")$Sample),
+    linetype="dashed",
+    color = "gray43",
+    size = 1 / .pt
+  ) +
+  ylab("Shape controller 1") +
+  scale_color_manual(
+    values = chain.color
+  ) +
+  scale_alpha_manual(
+    values = burnin.alpha
+  ) +
+  theme_bw() +
+  theme(
+    text = element_text(size = 7),
+    axis.title.y = element_blank(),
+    axis.title.x = element_blank(),
+    axis.text.x = element_blank(),
+    axis.ticks.x = element_blank(),
+    legend.position = "bottom",
+    panel.grid = element_blank()
+  )
+```
+
+### Shape controller 2
+
+```{r, include=FALSE}
+tnbc16.shape.ctrl.2 <- rbind(
+  tnbc16_1[1:tnbc16.len, ] %>%
+  select(
+    Sample,
+    shapeCtrl2
+  ) %>%
+  mutate(
+    chain = 1
+  ),
+  tnbc16_2[1:tnbc16.len, ] %>%
+  select(
+    Sample,
+    shapeCtrl2
+  ) %>%
+  mutate(
+    chain = 2
+  )
+) %>%
+  mutate(
+    chain = factor(chain, levels = c(1, 2))
+  ) %>%
+  mutate(
+    burnin = if_else(
+      Sample <= tnbc16.burnin * (tnbc16.len - 1) * thin,
+      "yes",
+      "no"
+    )
+  )
+```
+
+```{r}
+tp.tnbc16.shape.ctrl.2.1 <- ggplot(
+  tnbc16.shape.ctrl.2,
+  aes(
+    x = Sample,
+    y = shapeCtrl2,
+    shape = chain,
+    color = chain,
+    alpha = burnin
+  )
+) +
+  geom_line(
+    linewidth = linewidth.1
+  ) +
+  geom_vline(
+    xintercept = max(filter(tnbc16.shape.ctrl.2, burnin == "yes")$Sample),
+    linetype="dashed",
+    color = "gray43",
+    size = 1 / .pt
+  ) +
+  ylab("Shape controller 2") +
+  scale_color_manual(
+    values = chain.color
+  ) +
+  scale_alpha_manual(
+    values = burnin.alpha
+  ) +
+  theme_bw() +
+  theme(
+    text = element_text(size = 7),
+    legend.position = "bottom",
+    panel.grid = element_blank()
+  )
+
+tp.tnbc16.shape.ctrl.2.2 <- ggplot(
+  tnbc16.shape.ctrl.2 %>%
+    filter(
+      burnin == "no"
+    ),
+  aes(
+    x = Sample,
+    y = shapeCtrl2,
+    shape = chain,
+    color = chain,
+    alpha = burnin
+  )
+) +
+  geom_line(
+    linewidth = linewidth.2
+  ) +
+  geom_vline(
+    xintercept = max(filter(tnbc16.shape.ctrl.2, burnin == "yes")$Sample),
+    linetype="dashed",
+    color = "gray43",
+    size = 1 / .pt
+  ) +
+  ylab("Shape controller 2") +
+  scale_color_manual(
+    values = chain.color
+  ) +
+  scale_alpha_manual(
+    values = burnin.alpha
+  ) +
+  theme_bw() +
+  theme(
+    text = element_text(size = 7),
+    axis.title.y = element_blank(),
+    legend.position = "bottom",
+    panel.grid = element_blank()
+  )
+```
+
+### Plot all
+
+```{r}
+tp.tnbc16 <- ggarrange(
+  ggarrange(
+    tp.tnbc16.likelihood.1 + no.legend,
+    tp.tnbc16.ado.rate.1 + no.legend,
+    tp.tnbc16.eff.seq.err.rate.1 + no.legend,
+    tp.tnbc16.allelic.seq.cov.1 + no.legend,
+    tp.tnbc16.allelic.seq.cov.raw.var.1 + no.legend,
+    tp.tnbc16.shape.ctrl.1.1 + no.legend,
+    tp.tnbc16.shape.ctrl.2.1 + no.legend,
+    ncol = 1,
+    align = "v",
+    heights = c(
+      rep(
+        1,
+        6
+      ),
+      1.2
+    ),
+    labels = c(
+      "a",
+      "c",
+      "e",
+      "g",
+      "i",
+      "k",
+      "m"
+    ),
+    font.label = list(face = "bold", size = 7)
+  ),
+  ggarrange(
+    tp.tnbc16.likelihood.2 + no.legend,
+    tp.tnbc16.ado.rate.2 + no.legend,
+    tp.tnbc16.eff.seq.err.rate.2 + no.legend,
+    tp.tnbc16.allelic.seq.cov.2 + no.legend,
+    tp.tnbc16.allelic.seq.cov.raw.var.2 + no.legend,
+    tp.tnbc16.shape.ctrl.1.2 + no.legend,
+    tp.tnbc16.shape.ctrl.2.2 + no.legend,
+    ncol = 1,
+    align = "v",
+    heights = c(
+      rep(
+        1,
+        6
+      ),
+      1.2
+    ),
+    labels = c(
+      "b",
+      "d",
+      "f",
+      "h",
+      "j",
+      "l",
+      "n"
+    ),
+    font.label = list(face = "bold", size = 7)
+  ),
+  nrow = 1,
+  align = "h",
+  common.legend = TRUE,
+  legend = "bottom",
+  legend.grob = get_legend(tp.tnbc16.likelihood.1)
+)
+```
+
+```{r, include=FALSE}
+ggsave(
+  "../figs/tnbc16_trace_plot.pdf",
+  tp.tnbc16,
+  device = "pdf",
+  width = 183,
+  height = 252,
+  units = "mm",
+  dpi = 300
+)
+```
+
+## Gelman-Rubin's criterion
+
+### Ado rate
+
+```{r}
+gr.tnbc16.ado.rate <- gelman.diag(
+  mcmc.list(
+    list(
+      c1 = mcmc(
+        filter(
+          tnbc16.ado.rate,
+          chain == 1,
+          burnin == "no"
+        )$adoRate,
+        thin = 500
+      ),
+      c2 = mcmc(
+        filter(
+          tnbc16.ado.rate,
+          chain == 2,
+          burnin == "no"
+        )$adoRate,
+        thin = 500
+      )
+    )
+  ),
+  autoburnin = autoburnin
+)
+
+gr.tnbc16.ado.rate
+```
+
+### Effective sequencing error rate
+
+```{r}
+gr.tnbc16.eff.seq.err.rate <- gelman.diag(
+  mcmc.list(
+    list(
+      c1 = mcmc(
+        filter(
+          tnbc16.eff.seq.err.rate,
+          chain == 1,
+          burnin == "no"
+        )$effSeqErrRate,
+        thin = 500
+      ),
+      c2 = mcmc(
+        filter(
+          tnbc16.eff.seq.err.rate,
+          chain == 2,
+          burnin == "no"
+        )$effSeqErrRate,
+        thin = 500
+      )
+    )
+  ),
+  autoburnin = autoburnin
+)
+
+gr.tnbc16.eff.seq.err.rate
+```
+
+### Allelic sequencing coverage
+
+```{r}
+gr.tnbc16.allelic.seq.cov <- gelman.diag(
+  mcmc.list(
+    list(
+      c1 = mcmc(
+        filter(
+          tnbc16.allelic.seq.cov,
+          chain == 1,
+          burnin == "no"
+        )$allelicSeqCov,
+        thin = 500
+      ),
+      c2 = mcmc(
+        filter(
+          tnbc16.allelic.seq.cov,
+          chain == 2,
+          burnin == "no"
+        )$allelicSeqCov,
+        thin = 500
+      )
+    )
+  ),
+  autoburnin = autoburnin
+)
+
+gr.tnbc16.allelic.seq.cov
+```
+
+### Allelic sequencing coverage raw variance
+
+```{r}
+gr.tnbc16.allelic.seq.cov.raw.var <- gelman.diag(
+  mcmc.list(
+    list(
+      c1 = mcmc(
+        filter(
+          tnbc16.allelic.seq.cov.raw.var,
+          chain == 1,
+          burnin == "no"
+        )$allelicSeqCovRawVar,
+        thin = 500
+      ),
+      c2 = mcmc(
+        filter(
+          tnbc16.allelic.seq.cov.raw.var,
+          chain == 2,
+          burnin == "no"
+        )$allelicSeqCovRawVar,
+        thin = 500
+      )
+    )
+  ),
+  autoburnin = autoburnin
+)
+
+gr.tnbc16.allelic.seq.cov.raw.var
+```
+
+### Shape controller 1
+
+```{r}
+gr.tnbc16.shape.ctrl.1 <- gelman.diag(
+  mcmc.list(
+    list(
+      c1 = mcmc(
+        filter(
+          tnbc16.shape.ctrl.1,
+          chain == 1,
+          burnin == "no"
+        )$shapeCtrl1,
+        thin = 500
+      ),
+      c2 = mcmc(
+        filter(
+          tnbc16.shape.ctrl.1,
+          chain == 2,
+          burnin == "no"
+        )$shapeCtrl1,
+        thin = 500
+      )
+    )
+  ),
+  autoburnin = autoburnin
+)
+
+gr.tnbc16.shape.ctrl.1
+```
+
+### Shape controller 2
+
+```{r}
+gr.tnbc16.shape.ctrl.2 <- gelman.diag(
+  mcmc.list(
+    list(
+      c1 = mcmc(
+        filter(
+          tnbc16.shape.ctrl.2,
+          chain == 1,
+          burnin == "no"
+        )$shapeCtrl2,
+        thin = 500
+      ),
+      c2 = mcmc(
+        filter(
+          tnbc16.shape.ctrl.2,
+          chain == 2,
+          burnin == "no"
+        )$shapeCtrl2,
+        thin = 500
+      )
+    )
+  ),
+  autoburnin = autoburnin
+)
+
+gr.tnbc16.shape.ctrl.2
+```
+
+# Plot Gelman-Rubin's potential scale reduction factor
+
+```{r}
+data.frame(
+  reduction_factor = vapply(
+    list(
+      gr.crc28.ado.rate,
+      gr.crc28.eff.seq.err.rate,
+      gr.crc28.allelic.seq.cov,
+      gr.crc28.allelic.seq.cov.raw.var,
+      gr.crc28.shape.ctrl.1,
+      gr.crc28.shape.ctrl.2,
+      gr.crc48.ado.rate,
+      gr.crc48.eff.seq.err.rate,
+      gr.crc48.allelic.seq.cov,
+      gr.crc48.allelic.seq.cov.raw.var,
+      gr.crc48.shape.ctrl.1,
+      gr.crc48.shape.ctrl.2,
+      gr.tnbc16.ado.rate,
+      gr.tnbc16.eff.seq.err.rate,
+      gr.tnbc16.allelic.seq.cov,
+      gr.tnbc16.allelic.seq.cov.raw.var,
+      gr.tnbc16.shape.ctrl.1,
+      gr.tnbc16.shape.ctrl.2
+    ),
+    function(x) x$psrf[1, 1],
+    FUN.VALUE = numeric(1),
+    USE.NAMES = FALSE
+  ),
+  dataset = rep(
+    c("CRC28", "CRC48", "TNBC16"),
+    each = 6
+  )
+) %>%
+  mutate(
+    dataset = factor(
+      dataset,
+      levels = c("TNBC16", "CRC28", "CRC48")
+    )
+  ) %>%
+  ggplot(
+    aes(
+      x = dataset, y = reduction_factor
+    )
+  ) +
+  geom_violin() +
+  geom_point(
+    position = position_jitterdodge(
+      seed = 1
+    ),
+    aes(alpha = dataset),
+    color = "gray43",
+    size = 3 / .pt
+  ) +
+  geom_hline(
+    yintercept = 1.1,
+    linetype="dashed",
+    color = "gray43",
+    size = 1 / .pt
+  ) +
+  scale_alpha_discrete(
+    breaks = c("TNBC16", "CRC28", "CRC48"),
+    range = c(0.7, 0.7)
+  ) +
+  labs(
+    x = "Dataset",
+    y = "Gelman-Rubin statistic"
+  ) +
+  theme_bw() +
+  theme(
+    text = element_text(size = 7),
+    legend.position = "none",
+    panel.grid = element_blank()
+  )
+
+ggsave(
+  "../figs/gelman_rubin_statistic.pdf",
+  device = "pdf",
+  width = 120,
+  height = 70,
+  units = "mm",
+  dpi = 300
+)
+```

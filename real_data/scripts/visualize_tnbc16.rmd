@@ -1,0 +1,813 @@
+---
+title: "R Notebook"
+author: senbaikang
+date: 20.03.21
+output:
+  pdf_document: default
+  html_notebook: default
+---
+
+## Constants
+
+```{r}
+setwd(dirname(rstudioapi::getActiveDocumentContext()$path))
+
+# "ld" for locus dropout; "sa" for single ado
+ADO_MODE <- "sa"
+
+# "delsieve" or "sieve
+CONFIG = "delsieve"
+
+INPUT_DATA_FILE <- paste("../tnbc16", "data", "W32_dataFilter_improved.tsv", sep = "/")
+MUT_ROWS <- 5912
+
+REF_CLONE_WISE_CNVS_FILES <- list(
+  "Cancer" = paste(
+    "../tnbc16",
+    "data",
+    "W32_segments.txt",
+    sep = "/"
+  )
+)
+REF_CLONE_WISE_INDELS_FILE <- paste("../tnbc16", "data", "W32_mutect_indels.vcf", sep = "/")
+
+DELSIEVE_PREFIX <- paste("../tnbc16", ADO_MODE, CONFIG, sep = "/")
+
+CELL_ORIGIN <- NULL
+PLOT_BRANCH_LENGTH <- TRUE
+PLOT_HPD <- TRUE
+SCALE_LONGEST_BRANCH <- 1 # 2
+
+DELSIEVE_RESULTS_DIR <- paste0(
+  DELSIEVE_PREFIX,
+  "/../../results/stage2/variant_calling_dir/rmc_mu",
+  ifelse(
+    CONFIG == "delsieve",
+    "del_",
+    "_"
+  ),
+  ADO_MODE,
+  "_stage_1-rmc_mu",
+  ifelse(
+    CONFIG == "delsieve",
+    "del_",
+    "_"
+  ),
+  ADO_MODE,
+  "_stage_2/"
+)
+
+DELSIEVE_VCF_FILE <- paste0(
+  DELSIEVE_RESULTS_DIR,
+  "rmc_mu",
+  ifelse(
+    CONFIG == "delsieve",
+    "del_",
+    "_"
+  ),
+  ADO_MODE,
+  "_stage_1-rmc_mu",
+  ifelse(
+    CONFIG == "delsieve",
+    "del_",
+    "_"
+  ),
+  ADO_MODE,
+  "_stage_2_mode_gaussian.vcf"
+)
+DELSIEVE_VCF <- paste(DELSIEVE_PREFIX, "geneannotator/delsieve_vcf.rds", sep = "/")
+
+SIEVE_VCF <- paste("../tnbc16", "data", "sieve_vcf.rds", sep = "/")
+```
+
+## Load helper functions
+
+```{r warning = FALSE}
+source(file = "real_data_visualization.R")
+```
+
+## Visualize tree
+
+### Load local tree and get tips
+
+```{r}
+tree <- read.beast(paste(DELSIEVE_PREFIX, "geneannotator/annotated.tree", sep = "/"))
+
+tip.df <- get.tip.info(tree, pat2names = CELL_ORIGIN)
+
+ordered.tips <- get.ordered.tip.names(tree)
+```
+
+### Plot tree with nodes
+
+```{r}
+tree.branch.size <- 2.0 / .pt
+tree.out.format <- cairo_pdf
+tree.out.dpi <- 300
+tree.out.limitsize <- FALSE
+tip.point.size <- 4 / .pt
+tip.label.align <- TRUE
+tip.label.linetype <- "dotted"
+tip.label.linesize <- 1 / .pt
+tip.label.size <- 7 / .pt
+tip.label.color <- get.tip.color(1)
+tip.label.legend.title <- "Cell origin"
+legend.spacing <- unit(0, "pt")
+legend.key.size <- unit(3, "mm")
+legend.text.size <- element_text(size = 7)
+legend.title.size <- element_text(size = 7)
+
+mark.complex.genes <- list(
+  general = TRUE,
+  strict = TRUE
+)
+gene.dup.gene.sep <- " \U00D7 "
+gene.sep.criterion <- tibble(
+    num = c(3, 10, 15, 20, 30, 40, 50, 100, 150, 200, 250, 300),#c(10, 20, 40, 60, 80, 100, 120, 150, 200, 250, 300),#
+    group = c(1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12)
+  )
+gene.sep.collapse <- ","
+gene.text.alpha <- 0.9
+gene.text.size <- 6 / .pt
+gene.text.repel.min.segment.length <- 0
+gene.text.repel.max.overlaps <- 100
+gene.text.repel.label.padding <- unit(0.1, "lines")
+gene.text.repel.point.padding <- unit(0, "lines")
+gene.label.repel.label.r <- unit(0.1, "lines")
+gene.label.repel.label.size <- unit(0.15, "mm")
+gene.legend.title <- "Mutation event"
+gene.repel.type <- "label" # "label" or "text"
+gene.text.color.type <- "color" # "fill" or "color" / "colour"
+```
+
+Plot a tree with HPD.
+
+```{r}
+if (PLOT_HPD) {
+  plot.nodes(
+    tree.plot = get.ggtree(
+      tree,
+      branch.alpha = 1.0,
+      plot.branch.length = TRUE,
+      branch.size = tree.branch.size,
+      scale.longest.branch = 1L
+    ),
+    anno.tip.text = FALSE,
+    anno.tip.label = TRUE,
+    tip.data = tip.df,
+    tip.point.size = tip.point.size,
+    tip.label.align = tip.label.align,
+    tip.label.linetype = tip.label.linetype,
+    tip.label.linesize = tip.label.linesize,
+    tip.label.offset = 0,
+    tip.label.size = tip.label.size,
+    tip.label.legend.title = tip.label.legend.title,
+    tip.label.color = tip.label.color,
+    x.limit = c(0, 0.00017),
+    legend.spacing = legend.spacing,
+    legend.pos = c(0, 1),
+    legend.just = c("left", "top"),
+    legend.direction = "vertical",
+    legend.key.size = legend.key.size,
+    legend.text.size = legend.text.size,
+    legend.title.size = legend.title.size,
+    plot.margin = unit(c(0, 0, 0, 0), "mm"),
+    anno.hpd = TRUE,
+    hpd.color = "red",
+    hpd.size = 3 / .pt,
+    hpd.alpha = 1.0,
+    anno.branch.length = FALSE,
+    branch.length.digit = 3L,
+    branch.length.text.size = 7L / .pt,
+    branch.length.color = "lightblue",
+    branch.length.alpha = 1.0,
+    label.repel.arrow.length = unit(1.2, "mm"),
+    label.repel.force = 1,
+    label.repel.force_pull = 1,
+    label.repel.min.segment.length = 0,
+    label.repel.max.overlaps = 100,
+    label.repel.label.padding = unit(0.1, "lines"),
+    label.repel.box.padding = unit(0.1, "lines"),
+    label.repel.label.r = unit(0.1, "lines"),
+    label.repel.label.size = unit(0.15, "mm"),
+    anno.support = FALSE,
+    seed = 1L,
+    out.file = paste(DELSIEVE_PREFIX, "geneannotator/tree_HPD.pdf", sep = "/"),
+    out.format = tree.out.format,
+    out.width = 183,
+    out.height = 80,
+    out.dpi = tree.out.dpi,
+    out.limitsize = tree.out.limitsize
+  )
+}
+```
+
+Plot a tree with genes annotated.
+
+```{r}
+tree.plot <- get.ggtree(
+  tree,
+  plot.branch.length = PLOT_BRANCH_LENGTH,
+  branch.size = tree.branch.size,
+  scale.longest.branch = SCALE_LONGEST_BRANCH
+)
+tree.plot <- plot.nodes(
+  tree.plot = tree.plot,
+  tip.data = tip.df,
+  tip.point.size = tip.point.size,
+  tip.label.align = tip.label.align,
+  tip.label.linetype = tip.label.linetype,
+  tip.label.linesize = tip.label.linesize,
+  tip.label.offset = 0.000003, # 0.0000015
+  tip.label.size = tip.label.size,
+  tip.label.legend.title = tip.label.legend.title,
+  tip.label.color = tip.label.color,
+  x.limit = c(0, 0.00017), # 0.0000585
+  legend.spacing = legend.spacing,
+  legend.pos = c(0, 0.715), #c(0.68, 0.082)
+  legend.just = c("left", "top"),
+  legend.direction = "vertical",
+  legend.key.size = legend.key.size,
+  legend.text.size = legend.text.size,
+  legend.title.size = legend.title.size,
+  plot.margin = unit(c(0, 0, 0, 0), "mm"),
+  support.threshold = 0.5,
+  internal.node.text.size = 7 / .pt,
+  internal.node.label.padding = unit(0.1, "lines"),
+  internal.node.label.r = unit(0.1, "lines"),
+  internal.node.label.size = unit(0.15, "mm"),
+  internal.node.label.alpha = 1.0,
+  internal.node.label.fill.color = "white"
+)
+tree.plot
+```
+
+1.  All genes.
+
+```{r}
+tree.plot.1 <- plot.genes(
+  tree.plot,
+  mode = 1L,
+  mark.complex.genes = mark.complex.genes,
+  dup.gene.sep = gene.dup.gene.sep,
+  criterion = gene.sep.criterion,
+  collapse = gene.sep.collapse,
+  text.alpha = gene.text.alpha,
+  text.size = gene.text.size,
+  # arrow.length = unit(1, "mm"),
+  # arrow.type = "open",
+  text.repel.force = 20,
+  text.repel.force_pull = 1,
+  text.repel.min.segment.length = gene.text.repel.min.segment.length,
+  text.repel.max.overlaps = 30,
+  text.repel.label.padding = gene.text.repel.label.padding,
+  text.repel.box.padding = unit(1, "lines"),
+  text.repel.point.padding = gene.text.repel.point.padding,
+  label.repel.label.r = gene.label.repel.label.r,
+  label.repel.label.size = gene.label.repel.label.size,
+  legend.title = gene.legend.title,
+  repel.type = gene.repel.type, # "label" or "text"
+  text.color.type = gene.text.color.type, # "fill" or "color" / "colour"
+  direction = "both",
+  seed = 10L,
+  out.file = paste0(DELSIEVE_PREFIX, "/geneannotator/tree_all.pdf"),
+  out.format = tree.out.format,
+  out.width = 183,
+  out.height = 252,
+  out.dpi = tree.out.dpi,
+  out.limitsize = tree.out.limitsize
+)
+tree.plot.1
+```
+
+2.  ISA genes.
+
+```{r}
+# tree.plot.2 <- plot.genes(
+#   tree.plot,
+#   mode = 2L,
+#   dup.gene.sep = gene.dup.gene.sep,
+#   criterion = gene.sep.criterion,
+#   collapse = gene.sep.collapse,
+#   text.alpha = gene.text.alpha,
+#   text.size = gene.text.size,
+#   # arrow.length = unit(1, "mm"),
+#   # arrow.type = "open",
+#   text.repel.force = 1,
+#   text.repel.force_pull = 1,
+#   text.repel.min.segment.length = gene.text.repel.min.segment.length,
+#   text.repel.max.overlaps = 100,
+#   text.repel.label.padding = gene.text.repel.label.padding,
+#   text.repel.box.padding = unit(1.5, "lines"),
+#   text.repel.point.padding = gene.text.repel.point.padding,
+#   label.repel.label.r = gene.label.repel.label.r,
+#   label.repel.label.size = gene.label.repel.label.size,
+#   legend.title = gene.legend.title,
+#   repel.type = gene.repel.type, # "label" or "text"
+#   text.color.type = gene.text.color.type, # "fill" or "color" / "colour"
+#   seed = 2000L,
+#   out.file = paste0(SIEVE_PREFIX, "/geneannotator/tree_isa.pdf"),
+#   out.format = tree.out.format,
+#   out.width = 183,
+#   out.height = 247,
+#   out.dpi = tree.out.dpi,
+#   out.limitsize = tree.out.limitsize
+# )
+# tree.plot.2
+```
+
+3.  FSA genes.
+
+```{r}
+# tree.plot.3 <- plot.genes(
+#   tree.plot,
+#   mode = 3L,
+#   dup.gene.sep = gene.dup.gene.sep,
+#   criterion = gene.sep.criterion,
+#   collapse = gene.sep.collapse,
+#   text.alpha = gene.text.alpha,
+#   text.size = gene.text.size,
+#   # arrow.length = unit(1, "mm"),
+#   # arrow.type = "open",
+#   text.repel.force = 1,
+#   text.repel.force_pull = 1,
+#   text.repel.min.segment.length = gene.text.repel.min.segment.length,
+#   text.repel.max.overlaps = 50,
+#   text.repel.label.padding = gene.text.repel.label.padding,
+#   text.repel.box.padding = unit(0.3, "lines"),
+#   text.repel.point.padding = gene.text.repel.point.padding,
+#   label.repel.label.r = gene.label.repel.label.r,
+#   label.repel.label.size = gene.label.repel.label.size,
+#   legend.title = gene.legend.title,
+#   repel.type = gene.repel.type, # "label" or "text"
+#   text.color.type = gene.text.color.type, # "fill" or "color" / "colour"
+#   seed = 10L,
+#   out.file = paste0(SIEVE_PREFIX, "/geneannotator/tree_fsa.pdf"),
+#   out.format = tree.out.format,
+#   out.width = 180,
+#   out.height = 130,
+#   out.dpi = tree.out.dpi,
+#   out.limitsize = tree.out.limitsize
+# )
+# tree.plot.3
+```
+
+## Visualize genotype heatmap
+
+### Load data from VCF files
+
+```{r}
+if (is.null(DELSIEVE_VCF) || !file.exists(DELSIEVE_VCF)) {
+  delsieveVCF <- loadVcf(
+    file = DELSIEVE_VCF_FILE,
+    local.copy = DELSIEVE_VCF,
+    cores = 4L
+  )
+} else {
+  delsieveVCF <- readRDS(DELSIEVE_VCF)
+}
+
+size.factors <- load.size.factors(DELSIEVE_RESULTS_DIR)
+
+ref.indelVCF <- loadVcf(
+  file = REF_CLONE_WISE_INDELS_FILE,
+  vcf.geno = c("GT"),
+  convert2ternary = FALSE,
+  cores = 1L
+)
+
+ref.cn.comp <- get.cn.comp(
+  REF_CLONE_WISE_CNVS_FILES,
+  delsieveVCF
+)
+
+cov.data <- load.cov.data(
+  INPUT_DATA_FILE,
+  MUT_ROWS,
+  colnames(delsieveVCF),
+  size.factors = size.factors
+)
+```
+
+### Color mapping function
+
+```{r}
+ht_opt(
+  "COLUMN_ANNO_PADDING" = unit(0.5, "mm"),
+  "fast_hclust" = TRUE,
+  "verbose" = TRUE
+)
+
+out.gt.hm.width <- 183 # mm
+out.gt.hm.height <- 50 # mm
+in2mm <- 25.4
+
+gpar.title <- gpar(fontsize = 8L, fontfamily = "sans")
+gpar.title.2 <- gpar(fontsize = 8L, fontfamily = "sans")
+gpar.text <- gpar(fontsize = 7L, fontfamily = "sans")
+
+color.gt.hm <- get.gt.hm.color(i = 2)
+hm.row.title <- "Cells"
+hm.row.title.side <- "left"
+hm.row.title.gp <- gpar.title.2
+hm.column.title <- "SNV sites"
+hm.column.title.side <- "top"
+hm.column.title.gp <- gpar.title.2
+hm.row.order <- ordered.tips
+hm.row.names.side <- "left"
+hm.row.names.gp <- gpar.text
+hm.col.names.side <- "bottom"
+hm.col.names.gp <- gpar.text
+hm.col.names.rot <- 45
+```
+
+### Prepare data for heatmap
+
+```{r}
+delsieve.gt.data <- get.ternary(delsieveVCF)
+delsieve.gt.legend <- get.gt.legend(delsieve.gt.data, is.ado = FALSE)
+
+cov.data <- cov.data[decompose.sites(rownames(delsieve.gt.data))$site, ]
+```
+
+### Genotype heatmap from Sieve
+
+Cells are ordered according to the above tree, and sites are ordered with a specified distance method.
+
+```{r}
+delsieve.gt.hm <- Heatmap(
+  t(delsieve.gt.data),
+  col = color.gt.hm,
+  row_title = hm.row.title,
+  row_title_side = hm.row.title.side,
+  row_title_gp = hm.row.title.gp,
+  column_title = hm.column.title,
+  column_title_side = hm.column.title.side,
+  column_title_gp = hm.column.title.gp,
+  cluster_rows = FALSE,
+  row_order = hm.row.order,
+  row_names_side = hm.row.names.side,
+  row_names_gp = hm.row.names.gp,
+  row_names_centered = TRUE,
+  show_column_dend = FALSE,
+  show_row_names = FALSE,
+  show_column_names = FALSE,
+  heatmap_legend_param = list(
+    at = as.integer(names(delsieve.gt.legend)),
+    labels = delsieve.gt.legend,
+    title = "Genotype",
+    grid_height = unit(3, "mm"),
+    grid_width = unit(3, "mm"),
+    color_bar = "discrete",
+    border = "black",
+    title_gp = gpar.title,
+    labels_gp = gpar.text
+  )
+)
+
+draw(delsieve.gt.hm)
+
+delsieve.gt.hm.column.order <- column_order(delsieve.gt.hm)
+
+gt.key.sites <- columnAnnotation(
+    labelled_sites = anno_mark(
+      at = c(
+        delsieve.gt.hm.column.order[1L],
+        delsieve.gt.hm.column.order[2000L],
+        delsieve.gt.hm.column.order[4000L],
+        delsieve.gt.hm.column.order[length(delsieve.gt.hm.column.order)]
+        ),
+      labels = get.formatted.num.as.char(c(
+        "1",
+        "2000",
+        "4000",
+        as.character(length(delsieve.gt.hm.column.order))
+        )),
+      which = "column",
+      side = "top",
+      labels_gp = gpar.text,
+      labels_rot = 0,
+      link_width = unit(1, "pt"),
+      link_height = unit(2, "pt")
+    ),
+    show_legend = FALSE
+  )
+
+delsieve.gt.hm.column.order <- rownames(delsieveVCF)[delsieve.gt.hm.column.order]
+
+ordered.cn.for.gt <- tibble(site = delsieve.gt.hm.column.order) %>%
+  separate_wider_delim(site, delim = "_", names = c("site", "tmp")) %>%
+  select(-tmp) %>%
+  left_join(
+    ref.cn.comp,
+    by = "site",
+    multiple = "all"
+  )
+
+# cn.info.for.gt <- columnAnnotation(
+#   "Cancer" = anno_lines(
+#     filter(ordered.cn.for.gt, clone == "Cancer")$CNt,
+#     gp = gpar(col = "gray43"),
+#     size = unit(0.05, "pt"),
+#     height = unit(out.gt.hm.height / 8, "mm"),
+#     border = FALSE,
+#     axis_param = list(
+#       at = c(0, 2),
+#       gp = gpar.small
+#     )
+#   ),
+#   annotation_name_gp = gpar.small,
+#   show_legend = FALSE
+# )
+
+cairo_pdf(
+  paste(DELSIEVE_PREFIX, "geneannotator/gt_delsieve.pdf", sep = "/"),
+  width = out.gt.hm.width / in2mm,
+  height = out.gt.hm.height / in2mm,
+  fallback_resolution = 300,
+  onefile = FALSE
+)
+
+delsieve.gt.hm <- Heatmap(
+  t(delsieve.gt.data),
+  col = color.gt.hm,
+  row_title = hm.row.title,
+  row_title_side = hm.row.title.side,
+  row_title_gp = hm.row.title.gp,
+  column_title = hm.column.title,
+  column_title_side = hm.column.title.side,
+  column_title_gp = hm.column.title.gp,
+  cluster_rows = FALSE,
+  row_order = hm.row.order,
+  column_order = delsieve.gt.hm.column.order,
+  row_names_side = hm.row.names.side,
+  row_names_gp = hm.row.names.gp,
+  row_names_centered = TRUE,
+  show_column_dend = FALSE,
+  show_row_names = FALSE,
+  show_column_names = FALSE,
+  heatmap_legend_param = list(
+    at = as.integer(names(delsieve.gt.legend)),
+    labels = delsieve.gt.legend,
+    title = "Genotype",
+    grid_height = unit(3, "mm"),
+    grid_width = unit(3, "mm"),
+    color_bar = "discrete",
+    border = "black",
+    title_gp = gpar.title,
+    labels_gp = gpar.text
+  ),
+  top_annotation = gt.key.sites,
+  # bottom_annotation = cn.info.for.gt,
+  use_raster = FALSE
+)
+
+draw(delsieve.gt.hm)
+
+dev.off()
+```
+
+### Comparison of calling deletions between DelSIEVE and Sequenza
+
+```{r}
+cov.comp.anno.data <- get.cov.comp(
+  cell.origin = list(
+    "Cancer" = ".+"
+  ),
+  ref.cn.comp,
+  delsieve.gt.data,
+  cov.data,
+  list(
+    c("CN<2\nSequenza", "CN>=2\nSequenza"),
+    c("CN<2\nSequenza", "Deletion\nDelSIEVE"),
+    c("Deletion\nDelSIEVE", "Neutral\nDelSIEVE")
+  )
+)
+```
+
+```{r}
+plots <- plot.cov.comp(
+  cov.comp.anno.data$comp,
+  "clone",
+  cov.comp.anno.data$anno,
+  "smd_estimate",
+  group.name.map = list(
+    "Cancer" = NULL
+  ),
+  anno.sep = 16,
+  title.suffix = " in TNBC16"
+)
+
+lapply(
+  names(plots),
+  function(x) {
+    ggsave(
+      paste0(DELSIEVE_PREFIX, "/geneannotator/del_comp_3_", x, ".pdf"),
+      plots[[x]] + theme(legend.position = "none"),
+      device = "pdf",
+      width = 178,
+      height = 55,
+      units = "mm"
+    )
+  }
+)
+```
+
+```{r}
+sieveVCF <- readRDS(SIEVE_VCF)
+sieve.gt.data <- get.ternary(sieveVCF)
+
+targeted.sites <- unique(c(
+  rownames(delsieve.gt.data)[(rowSums(delsieve.gt.data < 0) > 0)],
+  rownames(sieve.gt.data)[(rowSums(sieve.gt.data > 1) > 0)]
+))
+
+length(intersect(
+  rownames(delsieve.gt.data)[(rowSums(delsieve.gt.data < 0) > 0)],
+  rownames(sieve.gt.data)[(rowSums(sieve.gt.data > 1) > 0)]
+))
+
+all(rowSums(sieve.gt.data[
+  setdiff(
+    rownames(delsieve.gt.data)[(rowSums(delsieve.gt.data < 0) > 0)],
+    rownames(sieve.gt.data)[(rowSums(sieve.gt.data > 1) > 0)]
+  ), ] == 1) > 0)
+
+targeted.delsieve.gt.data <- delsieve.gt.data[targeted.sites, ]
+targeted.sieve.gt.data <- sieve.gt.data[targeted.sites, ]
+
+length(rownames(delsieve.gt.data)[(rowSums(delsieve.gt.data < 0) > 0)])
+length(rownames(delsieve.gt.data)[(rowSums(delsieve.gt.data > 1) > 0)])
+length(rownames(sieve.gt.data)[(rowSums(sieve.gt.data > 1) > 0)])
+
+setdiff(rownames(sieve.gt.data), rownames(delsieve.gt.data))
+```
+
+### ADO state heatmap from Sieve
+
+Cells are ordered according to the above tree, and sites are ordered with a specified distance method.
+
+```{r}
+# sieve.ado.data <- get.ado.state(sieveVCF)
+# ado.legend <- get.legend(sieve.ado.data, is.ado = TRUE)
+#
+# # sieve.ado.hm <- Heatmap(
+# #   t(sieve.ado.data),
+# #   col = color.gt.hm,
+# #   row_title = hm.row.title,
+# #   row_title_side = hm.row.title.side,
+# #   row_title_gp = hm.row.title.gp,
+# #   column_title = hm.column.title,
+# #   column_title_side = hm.column.title.side,
+# #   column_title_gp = hm.column.title.gp,
+# #   cluster_rows = FALSE,
+# #   row_order = hm.row.order,
+# #   row_names_side = hm.row.names.side,
+# #   row_names_gp = hm.row.names.gp,
+# #   row_names_centered = TRUE,
+# #   show_column_dend = FALSE,
+# #   show_column_names = FALSE,
+# #   heatmap_legend_param = list(
+# #     at = as.integer(names(ado.legend)),
+# #     labels = ado.legend,
+# #     title = "ADO state",
+# #     grid_height = unit(3, "mm"),
+# #     grid_width = unit(3, "mm"),
+# #     color_bar = "discrete",
+# #     border = "black",
+# #     title_gp = gpar.title,
+# #     labels_gp = gpar.text
+# #   ),
+# #   use_raster = FALSE
+# # )
+# #
+# # draw(sieve.ado.hm)
+# #
+# # sieve.ado.hm.column.order <- column_order(sieve.ado.hm)
+# #
+# # ado.key.sites <- columnAnnotation(
+# #     labelled_sites = anno_mark(
+# #       at = c(
+# #         sieve.ado.hm.column.order[1L],
+# #         sieve.ado.hm.column.order[2000L],
+# #         sieve.ado.hm.column.order[4000L],
+# #         sieve.ado.hm.column.order[length(sieve.ado.hm.column.order)]
+# #         ),
+# #       labels = get.formatted.num.as.char(c(
+# #         "1",
+# #         "2000",
+# #         "4000",
+# #         as.character(length(sieve.ado.hm.column.order))
+# #         )),
+# #       which = "column",
+# #       side = "top",
+# #       labels_gp = gpar.text,
+# #       labels_rot = 0,
+# #       link_width = unit(0.7, "mm"),
+# #       link_height = unit(0.7, "mm")
+# #     ),
+# #     show_legend = FALSE
+# #   )
+# #
+# # sieve.ado.hm.column.order <- rownames(sieveVCF)[sieve.ado.hm.column.order]
+#
+# cairo_pdf(
+#   paste(SIEVE_PREFIX, "geneannotator/ado_sieve.pdf", sep = "/"),
+#   width = out.gt.hm.width / in2mm,
+#   height = out.gt.hm.height / in2mm,
+#   onefile = FALSE
+# )
+#
+# sieve.ado.hm <- Heatmap(
+#   t(sieve.ado.data),
+#   col = color.gt.hm,
+#   row_title = hm.row.title,
+#   row_title_side = hm.row.title.side,
+#   row_title_gp = hm.row.title.gp,
+#   column_title = hm.column.title,
+#   column_title_side = hm.column.title.side,
+#   column_title_gp = hm.column.title.gp,
+#   cluster_rows = FALSE,
+#   row_order = hm.row.order,
+#   column_order = sieve.gt.hm.column.order,
+#   row_names_side = hm.row.names.side,
+#   row_names_gp = hm.row.names.gp,
+#   row_names_centered = TRUE,
+#   show_column_dend = FALSE,
+#   show_column_names = FALSE,
+#   heatmap_legend_param = list(
+#     at = as.integer(names(ado.legend)),
+#     labels = ado.legend,
+#     title = "ADO state",
+#     grid_height = unit(3, "mm"),
+#     grid_width = unit(3, "mm"),
+#     color_bar = "discrete",
+#     border = "black",
+#     title_gp = gpar.title,
+#     labels_gp = gpar.text
+#   ),
+#   top_annotation = gt.key.sites,
+#   use_raster = FALSE
+# )
+#
+# draw(sieve.ado.hm)
+#
+# dev.off()
+```
+
+```{r}
+library(xtable)
+delsieve.gt.stats <- get.genotype.stats(delsieveVCF)
+sieve.gt.stats <- get.genotype.stats(sieveVCF)
+saveRDS(
+  matrix(
+    (c(delsieve.gt.stats, sieve.gt.stats)),
+    nrow = 2,
+    byrow = TRUE,
+    dimnames = list(
+      c("DelSIEVE", "SIEVE"),
+      names(delsieve.gt.stats)
+    )
+  ),
+  paste(DELSIEVE_PREFIX, "geneannotator/gt_prop.rds", sep = "/")
+)
+readRDS(paste(DELSIEVE_PREFIX, "geneannotator/gt_prop.rds", sep = "/"))
+print(xtable(format(readRDS(paste(DELSIEVE_PREFIX, "geneannotator/gt_prop.rds", sep = "/")), digits = 3L, scientific = TRUE), type = "latex"))
+```
+
+```{r}
+ggplot(
+  tibble(
+    label = names(delsieve.gt.stats),
+    prop = delsieve.gt.stats * 100
+  ) %>%
+    mutate(
+      ypos = cumsum(prop) - 1 * prop
+    ),
+  aes(
+    x = "",
+    y = prop,
+    fill = label
+  )
+) +
+  geom_bar(
+    stat = "identity",
+    width = 1,
+    color = "white"
+  ) +
+  coord_polar(
+    "y",
+    start = 0
+  ) +
+  theme_void() +
+  theme(legend.position="none") +
+  geom_text(
+    aes(
+      y = ypos,
+      label = label
+    ),
+    color = "white",
+    size = 6
+  ) +
+  scale_fill_brewer(palette = "Set1")
+```
